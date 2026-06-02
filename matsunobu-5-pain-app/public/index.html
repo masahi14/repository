@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>松信 業務管理</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ログイン画面 -->
+  <div id="login-screen">
+    <div class="login-box">
+      <h1>松信 業務管理</h1>
+      <p>名前を選んでください</p>
+      <div class="user-list" id="user-list"></div>
+      <div class="add-user-row">
+        <input type="text" id="new-user-input" placeholder="新しいスタッフ名を追加">
+        <button onclick="addUser()">追加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- メインアプリ -->
+  <div id="app" class="hidden">
+    <header>
+      <div class="header-left">
+        <span class="app-title">松信 業務管理</span>
+      </div>
+      <div class="header-center" id="pane-toggles">
+        <button class="toggle-btn active" data-pane="1" onclick="togglePane(1)">自分のタスク</button>
+        <button class="toggle-btn active" data-pane="2" onclick="togglePane(2)">委任タスク</button>
+        <button class="toggle-btn active" data-pane="3" onclick="togglePane(3)">院長指示</button>
+        <button class="toggle-btn active" data-pane="4" onclick="togglePane(4)">医療券</button>
+        <button class="toggle-btn active" data-pane="5" onclick="togglePane(5)">月次カレンダー</button>
+      </div>
+      <div class="header-right">
+        <span id="current-user-name"></span>
+        <button class="logout-btn" onclick="logout()">変更</button>
+      </div>
+    </header>
+
+    <div class="pane-container" id="pane-container">
+
+      <!-- ペイン1: 自分のタスク -->
+      <div class="pane" id="pane-1">
+        <div class="pane-header pane-1-color">
+          <span class="pane-title">自分のタスク</span>
+          <button class="add-btn" onclick="openTaskModal('personal')">＋</button>
+        </div>
+        <div class="pane-content" id="pane-1-content">
+          <!-- app.jsで動的描画 -->
+        </div>
+      </div>
+
+      <div class="resize-handle" id="handle-1-2"></div>
+
+      <!-- ペイン2: 委任タスク -->
+      <div class="pane" id="pane-2">
+        <div class="pane-header pane-2-color">
+          <span class="pane-title">委任タスク</span>
+          <button class="add-btn" onclick="openTaskModal('delegated')">＋</button>
+        </div>
+        <div class="pane-content" id="pane-2-content">
+          <!-- app.jsで動的描画 -->
+        </div>
+      </div>
+
+      <div class="resize-handle" id="handle-2-3"></div>
+
+      <!-- ペイン3: 院長指示 -->
+      <div class="pane" id="pane-3">
+        <div class="pane-header pane-3-color">
+          <span class="pane-title">院長指示</span>
+          <button class="add-btn" onclick="openTaskModal('director')">＋</button>
+        </div>
+        <div class="pane-content" id="pane-3-content">
+          <!-- app.jsで動的描画 -->
+        </div>
+      </div>
+
+      <div class="resize-handle" id="handle-3-4"></div>
+
+      <!-- ペイン4: 医療券トラッキング -->
+      <div class="pane" id="pane-4">
+        <div class="pane-header pane-4-color">
+          <span class="pane-title">医療券トラッキング</span>
+          <button class="add-btn" onclick="openCertModal()">＋</button>
+        </div>
+        <div class="pane-content" id="pane-4-content">
+          <!-- app.jsで動的描画 -->
+        </div>
+      </div>
+
+      <div class="resize-handle" id="handle-4-5"></div>
+
+      <!-- ペイン5: 月次カレンダー -->
+      <div class="pane" id="pane-5">
+        <div class="pane-header pane-5-color">
+          <span class="pane-title">月次カレンダー</span>
+          <button class="add-btn" onclick="openEventModal()">＋</button>
+        </div>
+        <div class="pane-content" id="pane-5-content">
+          <!-- app.jsで動的描画 -->
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- モーダル -->
+  <div id="modal-overlay" class="modal-overlay hidden" onclick="closeModalOutside(event)">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-title">タスクを追加</h3>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-body" id="modal-body">
+        <!-- 動的に生成 -->
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
