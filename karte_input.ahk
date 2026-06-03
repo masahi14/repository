@@ -14,13 +14,18 @@
 ; 【調整が必要な箇所】
 ;   - DELAY : 入力が速すぎる/遅すぎる場合に調整（ミリ秒）
 ;   - CheckWindow() : ウィンドウタイトルが異なる場合に修正
-;   - EC()/EX() : Enterキー以外で確定する場合は "{Tab}" 等に変更
+;   - EC()/EX()/EH() : Enterキー以外で確定する場合は "{Tab}" 等に変更
+; ------------------------------------------------------------
+; 【手動入力が必要なコード】
+;   43991, 40025（入力後に保険資格確認ダイアログ→Escで閉じる）,
+;   40158, 36957, 36404, 36434, 36412
+;   ※上記を手動入力後、スクリプトを起動すること（40168から自動入力）
 ; ============================================================
 
 #Requires AutoHotkey v2.0
 #SingleInstance Force
 
-global DELAY := 300
+global DELAY := 600
 
 ; ============================================================
 ; コメント候補リスト定義
@@ -137,6 +142,7 @@ CheckWindow() {
     return true
 }
 
+; コード入力してEnterで確定
 EC(code) {
     global DELAY
     SendInput(code)
@@ -144,13 +150,30 @@ EC(code) {
     Sleep(DELAY)
 }
 
+; テキストをクリップボード経由で貼り付けてEnterで確定
 EX(text) {
     global DELAY
     oldClip := ClipboardAll()
+    A_Clipboard := ""
+    ClipWait(1)
     A_Clipboard := String(text)
     ClipWait(2)
     SendInput("^v")
     SendInput("{Enter}")
+    Sleep(DELAY)
+    A_Clipboard := oldClip
+}
+
+; テキストをクリップボード経由で貼り付けてHomeキーで確定（測定数値入力ダイアログ用）
+EH(text) {
+    global DELAY
+    oldClip := ClipboardAll()
+    A_Clipboard := ""
+    ClipWait(1)
+    A_Clipboard := String(text)
+    ClipWait(2)
+    SendInput("^v")
+    SendInput("{Home}")
     Sleep(DELAY)
     A_Clipboard := oldClip
 }
@@ -183,18 +206,13 @@ Input2Random(arr) {
 
 ; ============================================================
 ; 大人ベース入力（パターン1・2共通）
+; ※ 43991,40025,40158,36957,36404,36434,36412 は手動入力済み前提
 ; ============================================================
 
 RunAdultBase(oral) {
     global adultFood, adultBrush, adultLoc, adultOral
 
-    EC("43991")
-    EC("40025")
-    EC("40158")
-    EC("36957")
-    EC("36404")
-    EC("36434")
-    EC("36412")
+    ; 40168 から自動入力開始
     EC("40168")
     EC("46153")
 
@@ -221,7 +239,12 @@ RunAdultBase(oral) {
 
     EC("40248")
 
+    ; 42523 入力後に歯垢付着部位選択ダイアログが開く → 234567+Enter で選択
     EC("42523")
+    SendInput("234567")
+    SendInput("{Enter}")
+    Sleep(DELAY)
+
     Pick2(adultLoc, &lIdx1, &lIdx2)
     EC(adultLoc[lIdx1])
     EC(adultLoc[lIdx2])
@@ -236,11 +259,24 @@ RunAdultBase(oral) {
 ; ============================================================
 
 RunAdultCe() {
+    global DELAY
+
+    ; 36644 入力後にエナメル質初期う蝕コメント選択ダイアログが開く → 36+Enter で選択
     EC("36644")
+    SendInput("36")
+    SendInput("{Enter}")
+    Sleep(DELAY)
+
+    ; 46421 入力後に光学式う蝕検出装置選択ダイアログが開く → 1+Enter で選択
     EC("46421")
+    SendInput("1")
+    SendInput("{Enter}")
+    Sleep(DELAY)
+
     EC("46423")
     EC("46422")
-    EX(Random(15, 25))
+    ; 測定数値入力ダイアログは Home キーで確定
+    EH(Random(15, 25))
     EC("41434")
     EC("46095")
     EC("36649")
@@ -250,17 +286,13 @@ RunAdultCe() {
 
 ; ============================================================
 ; 子供 全体入力
+; ※ 40025,40158,36957,36404,36434,36412 は手動入力済み前提
 ; ============================================================
 
 RunChild() {
-    global childFood, childBrush, childLoc, childOral
+    global childFood, childBrush, childLoc, childOral, DELAY
 
-    EC("40025")
-    EC("40158")
-    EC("36957")
-    EC("36404")
-    EC("36434")
-    EC("36412")
+    ; 40168 から自動入力開始
     EC("40168")
     EC("46153")
 
@@ -271,7 +303,12 @@ RunChild() {
     EC("40248")
     EC("42421")
 
+    ; 42523 入力後に歯垢付着部位選択ダイアログが開く → 234567+Enter で選択
     EC("42523")
+    SendInput("234567")
+    SendInput("{Enter}")
+    Sleep(DELAY)
+
     Pick2(childLoc, &lIdx1, &lIdx2)
     EC(childLoc[lIdx1])
     EC(childLoc[lIdx2])
@@ -302,12 +339,22 @@ RunChild() {
     EX(childOral[oIdx2])
     EX("管理内容等、別紙記載")
 
+    ; 36644 入力後にエナメル質初期う蝕コメント選択ダイアログが開く → 36+Enter で選択
     EC("36644")
-    EX("プラークコントロール指導")
+    SendInput("36")
+    SendInput("{Enter}")
+    Sleep(DELAY)
+
+    ; 46421 入力後に光学式う蝕検出装置選択ダイアログが開く → 1+Enter で選択
     EC("46421")
+    SendInput("1")
+    SendInput("{Enter}")
+    Sleep(DELAY)
+
     EC("46423")
     EC("46422")
-    EX(Random(15, 25))
+    ; 測定数値入力ダイアログは Home キーで確定
+    EH(Random(15, 25))
     EC("41434")
     EC("46095")
     EX("エナメル質に白濁・粗造な着色があり、う窩形成を防ぐためフッ化物の利用等を指導した")
