@@ -3,17 +3,16 @@
 """
 訪問診療 券管理台帳 Excel生成スクリプト
 生活保護・介護保険の訪問診療患者管理用Excelファイルを生成します。
+施設ごとにシートを分けて管理します。
 """
 
 import sys
+import os
 from datetime import date, datetime
 
 try:
-    import openpyxl
     from openpyxl import Workbook
-    from openpyxl.styles import (
-        PatternFill, Font, Alignment, Border, Side,
-    )
+    from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
     from openpyxl.worksheet.datavalidation import DataValidation
     from openpyxl.formatting.rule import FormulaRule
@@ -24,555 +23,475 @@ except ImportError:
 
 
 # ============================================================
-# 定数定義
+# 施設定義
 # ============================================================
+
+FACILITIES = [
+    {
+        "sheet_name": "ハートワン潮来",
+        "name":       "ハートワン潮来",
+        "tel":        "0299-94-7714",
+        "color_bg":   "1F4E79",   # ヘッダー背景（青系）
+        "color_tab":  "2E75B6",   # サブヘッダー背景
+        "sample": [
+            ("H001", "山田 太郎", date(2025, 5, 10), "2025年5月", "医療券+介護券",
+             date(2025, 5, 20), date(2025, 5, 22), "請求済み",
+             date(2025, 5, 25), "田中", ""),
+            ("H002", "佐藤 花子", date(2025, 5, 12), "2025年5月", "医療券",
+             date(2025, 5, 18), None, "請求済み",
+             date(2025, 5, 23), "鈴木", ""),
+            ("H003", "鈴木 一郎", date(2025, 5, 15), "2025年5月", "介護券",
+             None, None, "券未着-継続追跡",
+             None, "田中", "5/30以降も未着。施設へ確認要"),
+            ("H004", "高橋 美子", date(2025, 5, 20), "2025年5月", "医療券+介護券",
+             None, None, "月遅れ待ち",
+             None, "佐藤", "6月上旬に券到着予定"),
+            ("H005", "渡辺 健二", date(2025, 5, 28), "2025年5月", "医療券",
+             None, None, "未請求",
+             None, "鈴木", ""),
+        ],
+    },
+    {
+        "sheet_name": "養護老人ホーム潮来",
+        "name":       "養護老人ホーム潮来",
+        "tel":        "0299-94-7820",
+        "color_bg":   "375623",   # ヘッダー背景（緑系）
+        "color_tab":  "548235",   # サブヘッダー背景
+        "sample": [
+            ("Y001", "中村 正雄", date(2025, 5, 8),  "2025年5月", "医療券",
+             date(2025, 5, 15), None, "請求済み",
+             date(2025, 5, 20), "田中", ""),
+            ("Y002", "小林 幸子", date(2025, 5, 14), "2025年5月", "医療券+介護券",
+             None, None, "未請求",
+             None, "鈴木", ""),
+            ("Y003", "加藤 義男", date(2025, 5, 22), "2025年5月", "介護券",
+             None, None, "券未着-継続追跡",
+             None, "佐藤", "市役所へ問い合わせ中"),
+        ],
+    },
+]
 
 OUTPUT_FILENAME = "訪問診療_券管理台帳.xlsx"
 
-# カラーコード
-COLOR_HEADER_BG = "1F4E79"
-COLOR_HEADER_FG = "FFFFFF"
-
-COLOR_MISEI = "FFE0E0"         # 未請求: 薄赤
-COLOR_TSUKI = "FFFACD"         # 月遅れ待ち: 薄黄
-COLOR_SEIKYU = "E8F5E9"        # 請求済み: 薄緑
-COLOR_MIFUCHAKU = "FFE8CC"     # 券未着-継続追跡: 薄橙
-
-COLOR_DASHBOARD_TITLE_BG = "1F4E79"
-COLOR_SECTION_BG = "D6E4F0"
-
-# ステータス値
-STATUS_MISEI = "未請求"
-STATUS_TSUKI = "月遅れ待ち"
-STATUS_SEIKYU = "請求済み"
+# ステータス
+STATUS_MISEI    = "未請求"
+STATUS_TSUKI    = "月遅れ待ち"
+STATUS_SEIKYU   = "請求済み"
 STATUS_MIFUCHAKU = "券未着-継続追跡"
-
 STATUS_LIST = [STATUS_MISEI, STATUS_TSUKI, STATUS_SEIKYU, STATUS_MIFUCHAKU]
 
-# 券種別
 VOUCHER_TYPES = ["医療券", "介護券", "医療券+介護券"]
 
-# カラム定義 (列番号, ヘッダー名, 幅)
+# ステータスごとの色
+STATUS_COLORS = {
+    STATUS_MISEI:     "FFE0E0",   # 薄赤
+    STATUS_TSUKI:     "FFFACD",   # 薄黄
+    STATUS_SEIKYU:    "E8F5E9",   # 薄緑
+    STATUS_MIFUCHAKU: "FFE8CC",   # 薄橙
+}
+
+# カラム定義: (col_idx, header, width)
+# 注: 施設シートはステータス列 = I列 (col 9)
 COLUMNS = [
-    (1,  "No",           8),
-    (2,  "患者ID",        12),
-    (3,  "患者名",        16),
-    (4,  "訪問日",        14),
-    (5,  "請求対象月",    14),
-    (6,  "券種別",        18),
-    (7,  "医療券到着日",  16),
-    (8,  "介護券到着日",  16),
-    (9,  "請求ステータス", 22),
-    (10, "請求日",        14),
-    (11, "担当者",        12),
-    (12, "メモ",          30),
+    (1,  "No",            6),
+    (2,  "患者ID",         11),
+    (3,  "患者名",         16),
+    (4,  "訪問日",         13),
+    (5,  "請求対象月",     14),
+    (6,  "券種別",         17),
+    (7,  "医療券\n到着日", 14),
+    (8,  "介護券\n到着日", 14),
+    (9,  "請求\nステータス", 16),
+    (10, "請求日",         13),
+    (11, "担当者",         11),
+    (12, "メモ",           32),
 ]
-
-# サンプルデータ (患者ID, 患者名, 訪問日, 請求対象月, 券種別, 医療券到着日, 介護券到着日, ステータス, 請求日, 担当者, メモ)
-SAMPLE_DATA = [
-    ("P001", "山田 太郎", date(2025, 5, 10), "2025年5月", "医療券+介護券",
-     date(2025, 5, 20), date(2025, 5, 22), STATUS_SEIKYU,
-     date(2025, 5, 25), "田中", "定期訪問"),
-    ("P002", "佐藤 花子", date(2025, 5, 12), "2025年5月", "医療券",
-     date(2025, 5, 18), None, STATUS_SEIKYU,
-     date(2025, 5, 23), "鈴木", ""),
-    ("P003", "鈴木 一郎", date(2025, 5, 15), "2025年5月", "介護券",
-     None, None, STATUS_MIFUCHAKU,
-     None, "田中", "5/30以降も未着。事務所へ確認要"),
-    ("P004", "高橋 美子", date(2025, 5, 20), "2025年5月", "医療券+介護券",
-     None, None, STATUS_TSUKI,
-     None, "佐藤", "6月上旬に券到着予定"),
-    ("P005", "渡辺 健二", date(2025, 5, 28), "2025年5月", "医療券",
-     None, None, STATUS_MISEI,
-     None, "鈴木", "券待ち"),
-]
+TOTAL_COLS   = 12
+STATUS_COL   = 9   # I列
+DATA_START   = 4   # 施設情報2行 + ヘッダー1行 → データは4行目から
+DATA_END     = 203  # データ最終行
 
 
 # ============================================================
-# スタイルヘルパー関数
+# スタイルヘルパー
 # ============================================================
 
-def make_fill(hex_color: str) -> PatternFill:
-    return PatternFill(fill_type="solid", fgColor=hex_color)
-
-
-def make_border(style: str = "thin") -> Border:
-    side = Side(style=style)
-    return Border(left=side, right=side, top=side, bottom=side)
-
-
-def make_font(bold: bool = False, color: str = "000000", size: int = 11) -> Font:
+def fill(color): return PatternFill(fill_type="solid", fgColor=color)
+def font(bold=False, color="000000", size=11):
     return Font(bold=bold, color=color, size=size, name="メイリオ")
-
-
-def make_alignment(horizontal: str = "center", vertical: str = "center",
-                   wrap: bool = False) -> Alignment:
-    return Alignment(horizontal=horizontal, vertical=vertical, wrap_text=wrap)
-
-
-def apply_cell_style(cell, fill=None, font=None, alignment=None, border=None):
-    if fill:
-        cell.fill = fill
-    if font:
-        cell.font = font
-    if alignment:
-        cell.alignment = alignment
-    if border:
-        cell.border = border
+def align(h="center", v="center", wrap=False):
+    return Alignment(horizontal=h, vertical=v, wrap_text=wrap)
+def border(style="thin"):
+    s = Side(style=style)
+    return Border(left=s, right=s, top=s, bottom=s)
 
 
 # ============================================================
-# シート1: 管理台帳
+# 施設シート構築
 # ============================================================
 
-def build_kanri_sheet(wb: Workbook):
-    ws = wb.active
-    ws.title = "管理台帳"
+def build_facility_sheet(wb: Workbook, facility: dict, sheet_name: str):
+    ws = wb.create_sheet(title=sheet_name)
     ws.sheet_view.showGridLines = True
 
-    # --- ヘッダー行 ---
-    header_fill = make_fill(COLOR_HEADER_BG)
-    header_font = make_font(bold=True, color=COLOR_HEADER_FG, size=11)
-    header_align = make_alignment("center", "center")
-    header_border = make_border("medium")
+    bg   = facility["color_bg"]
+    sub  = facility["color_tab"]
+    name = facility["name"]
+    tel  = facility["tel"]
 
+    # --- 行1: 施設タイトル ---
+    ws.merge_cells(f"A1:{get_column_letter(TOTAL_COLS)}1")
+    c = ws["A1"]
+    c.value     = f"　{name}　　券管理台帳"
+    c.fill      = fill(bg)
+    c.font      = font(bold=True, color="FFFFFF", size=14)
+    c.alignment = align("left", "center")
+    ws.row_dimensions[1].height = 30
+
+    # --- 行2: 施設情報（電話番号） ---
+    ws.merge_cells(f"A2:{get_column_letter(TOTAL_COLS)}2")
+    c = ws["A2"]
+    c.value     = f"　TEL：{tel}　　　　券が届かない場合はこちらへ連絡してください"
+    c.fill      = fill(sub)
+    c.font      = font(bold=False, color="FFFFFF", size=10)
+    c.alignment = align("left", "center")
+    ws.row_dimensions[2].height = 20
+
+    # --- 行3: カラムヘッダー ---
     for col_idx, header_text, col_width in COLUMNS:
-        cell = ws.cell(row=1, column=col_idx, value=header_text)
-        apply_cell_style(cell,
-                         fill=header_fill,
-                         font=header_font,
-                         alignment=header_align,
-                         border=header_border)
+        c = ws.cell(row=3, column=col_idx, value=header_text)
+        c.fill      = fill("37474F")
+        c.font      = font(bold=True, color="FFFFFF", size=10)
+        c.alignment = align("center", "center", wrap=True)
+        c.border    = border("medium")
         ws.column_dimensions[get_column_letter(col_idx)].width = col_width
+    ws.row_dimensions[3].height = 30
 
-    # ヘッダー行の高さ
-    ws.row_dimensions[1].height = 28
+    # ヘッダー行（3行目）を固定
+    ws.freeze_panes = "A4"
 
-    # ヘッダー行を固定
-    ws.freeze_panes = "A2"
+    # --- ドロップダウン ---
+    status_col_letter = get_column_letter(STATUS_COL)
+    voucher_col_letter = get_column_letter(6)
 
-    # --- 列幅の微調整 ---
-    ws.column_dimensions["A"].width = 6
-
-    # --- データ検証 (ドロップダウン) ---
-    # 券種別 (F列: 患者ID追加により1列右へ)
     dv_voucher = DataValidation(
         type="list",
         formula1='"' + ",".join(VOUCHER_TYPES) + '"',
-        allow_blank=True,
-        showDropDown=False,
-        showErrorMessage=True,
-        errorTitle="入力エラー",
-        error="リストから選択してください。",
+        allow_blank=True, showDropDown=False,
+        showErrorMessage=True, errorTitle="入力エラー", error="リストから選択してください",
     )
-    dv_voucher.sqref = "F2:F200"
+    dv_voucher.sqref = f"{voucher_col_letter}{DATA_START}:{voucher_col_letter}{DATA_END}"
     ws.add_data_validation(dv_voucher)
 
-    # 請求ステータス (I列: 患者ID追加により1列右へ)
     dv_status = DataValidation(
         type="list",
         formula1='"' + ",".join(STATUS_LIST) + '"',
-        allow_blank=True,
-        showDropDown=False,
-        showErrorMessage=True,
-        errorTitle="入力エラー",
-        error="リストから選択してください。",
+        allow_blank=True, showDropDown=False,
+        showErrorMessage=True, errorTitle="入力エラー", error="リストから選択してください",
     )
-    dv_status.sqref = "I2:I200"
+    dv_status.sqref = f"{status_col_letter}{DATA_START}:{status_col_letter}{DATA_END}"
     ws.add_data_validation(dv_status)
 
-    # --- 条件付き書式 (行の背景色をI列の値で変える) ---
-    status_colors = [
-        (STATUS_MISEI,     COLOR_MISEI),
-        (STATUS_TSUKI,     COLOR_TSUKI),
-        (STATUS_SEIKYU,    COLOR_SEIKYU),
-        (STATUS_MIFUCHAKU, COLOR_MIFUCHAKU),
-    ]
-
-    for status_val, hex_color in status_colors:
-        diff_fill = PatternFill(fill_type="solid", fgColor=hex_color)
+    # --- 条件付き書式（行全体をステータスで色付け）---
+    cf_range = f"A{DATA_START}:{get_column_letter(TOTAL_COLS)}{DATA_END}"
+    for status_val, hex_color in STATUS_COLORS.items():
         rule = FormulaRule(
-            formula=[f'$I2="{status_val}"'],
-            fill=diff_fill,
+            formula=[f'${status_col_letter}{DATA_START}="{status_val}"'],
+            fill=fill(hex_color),
             stopIfTrue=False,
         )
-        ws.conditional_formatting.add("A2:L200", rule)
+        ws.conditional_formatting.add(cf_range, rule)
 
     # --- サンプルデータ ---
-    thin_border = make_border("thin")
-    data_font = make_font(size=10)
-    center_align = make_alignment("center", "center")
-    left_align = make_alignment("left", "center")
+    thin = border("thin")
+    data_font = font(size=10)
+    center = align("center", "center")
+    left   = align("left", "center", wrap=True)
 
-    for row_idx, row_data in enumerate(SAMPLE_DATA, start=2):
-        (patient_id, patient, visit_dt, billing_month, voucher_type,
+    for row_offset, row_data in enumerate(facility["sample"]):
+        r = DATA_START + row_offset
+        (pid, pname, visit_dt, billing_month, voucher_type,
          med_arrive, care_arrive, status, billing_dt, staff, memo) = row_data
 
         values = [
-            row_idx - 1,       # A: No
-            patient_id,        # B: 患者ID
-            patient,           # C: 患者名
-            visit_dt,          # D: 訪問日
-            billing_month,     # E: 請求対象月
-            voucher_type,      # F: 券種別
-            med_arrive,        # G: 医療券到着日
-            care_arrive,       # H: 介護券到着日
-            status,            # I: 請求ステータス
-            billing_dt,        # J: 請求日
-            staff,             # K: 担当者
-            memo,              # L: メモ
+            row_offset + 1, pid, pname, visit_dt, billing_month,
+            voucher_type, med_arrive, care_arrive, status, billing_dt, staff, memo,
         ]
-
-        for col_idx, value in enumerate(values, start=1):
-            cell = ws.cell(row=row_idx, column=col_idx, value=value)
-            cell.font = data_font
-            cell.border = thin_border
-
-            # 日付列: D(4), G(7), H(8), J(10)
-            if col_idx in (4, 7, 8, 10) and isinstance(value, date):
-                cell.number_format = "YYYY/MM/DD"
-                cell.alignment = center_align
-            elif col_idx == 1:
-                cell.alignment = center_align
+        for col_idx, val in enumerate(values, 1):
+            c = ws.cell(row=r, column=col_idx, value=val)
+            c.font   = data_font
+            c.border = thin
+            if col_idx in (4, 7, 8, 10) and isinstance(val, date):
+                c.number_format = "YYYY/MM/DD"
+                c.alignment = center
+            elif col_idx in (1,):
+                c.alignment = center
             elif col_idx == 12:
-                cell.alignment = left_align
+                c.alignment = left
             else:
-                cell.alignment = center_align
+                c.alignment = center
+        ws.row_dimensions[r].height = 20
 
-        ws.row_dimensions[row_idx].height = 20
-
-    # --- 空データ行のボーダー・フォーマット設定 ---
-    for row_idx in range(len(SAMPLE_DATA) + 2, 201):
-        for col_idx in range(1, 13):
-            cell = ws.cell(row=row_idx, column=col_idx)
-            cell.border = thin_border
-            cell.font = data_font
-            if col_idx in (4, 7, 8, 10):
-                cell.number_format = "YYYY/MM/DD"
-                cell.alignment = center_align
-            elif col_idx == 1:
-                cell.alignment = center_align
-            elif col_idx == 12:
-                cell.alignment = left_align
+    # --- 空行のボーダー設定 ---
+    empty_start = DATA_START + len(facility["sample"])
+    for r in range(empty_start, DATA_END + 1):
+        for c_idx in range(1, TOTAL_COLS + 1):
+            c = ws.cell(row=r, column=c_idx)
+            c.border = thin
+            c.font   = data_font
+            if c_idx in (4, 7, 8, 10):
+                c.number_format = "YYYY/MM/DD"
+                c.alignment = center
+            elif c_idx == 1:
+                c.alignment = center
+            elif c_idx == 12:
+                c.alignment = left
             else:
-                cell.alignment = center_align
-        ws.row_dimensions[row_idx].height = 20
+                c.alignment = center
+        ws.row_dimensions[r].height = 20
 
     return ws
 
 
 # ============================================================
-# シート2: ダッシュボード
+# ダッシュボードシート
 # ============================================================
 
-def build_dashboard_sheet(wb: Workbook):
+def build_dashboard(wb: Workbook):
     ws = wb.create_sheet(title="ダッシュボード")
     ws.sheet_view.showGridLines = False
 
-    # 列幅設定
-    col_widths = {"A": 4, "B": 28, "C": 18, "D": 4}
-    for col, width in col_widths.items():
-        ws.column_dimensions[col].width = width
+    # 列幅
+    ws.column_dimensions["A"].width = 3
+    ws.column_dimensions["B"].width = 22
+    ws.column_dimensions["C"].width = 14
+    ws.column_dimensions["D"].width = 14
+    ws.column_dimensions["E"].width = 3
 
     # --- タイトル ---
-    ws.merge_cells("B1:C1")
-    title_cell = ws["B1"]
-    title_cell.value = "訪問診療 券管理 ダッシュボード"
-    title_cell.fill = make_fill(COLOR_DASHBOARD_TITLE_BG)
-    title_cell.font = make_font(bold=True, color=COLOR_HEADER_FG, size=16)
-    title_cell.alignment = make_alignment("center", "center")
-    ws.row_dimensions[1].height = 40
+    ws.merge_cells("B1:D1")
+    c = ws["B1"]
+    c.value     = "訪問診療　券管理　ダッシュボード"
+    c.fill      = fill("1F4E79")
+    c.font      = font(bold=True, color="FFFFFF", size=16)
+    c.alignment = align("center", "center")
+    ws.row_dimensions[1].height = 38
 
-    ws.merge_cells("B2:C2")
-    subtitle_cell = ws["B2"]
-    subtitle_cell.value = "生活保護・介護保険 訪問診療患者 管理システム"
-    subtitle_cell.fill = make_fill("D6E4F0")
-    subtitle_cell.font = make_font(size=11, color="1F4E79")
-    subtitle_cell.alignment = make_alignment("center", "center")
+    ws.merge_cells("B2:D2")
+    c = ws["B2"]
+    c.value     = "ハートワン潮来　／　養護老人ホーム潮来"
+    c.fill      = fill("D6E4F0")
+    c.font      = font(size=11, color="1F4E79")
+    c.alignment = align("center", "center")
     ws.row_dimensions[2].height = 22
 
-    # spacer
-    ws.row_dimensions[3].height = 12
+    ws.row_dimensions[3].height = 10
 
-    # --- サマリーテーブルタイトル ---
-    ws.merge_cells("B4:C4")
-    section_cell = ws["B4"]
-    section_cell.value = "■ 請求ステータス集計"
-    section_cell.fill = make_fill(COLOR_SECTION_BG)
-    section_cell.font = make_font(bold=True, size=12, color="1F4E79")
-    section_cell.alignment = make_alignment("left", "center")
-    ws.row_dimensions[4].height = 26
+    # --- 集計テーブルヘッダー ---
+    headers = ["ステータス", "ハートワン\n潮来", "養護老人\nホーム潮来"]
+    for i, h in enumerate(headers, 2):
+        c = ws.cell(row=4, column=i, value=h)
+        c.fill      = fill("37474F")
+        c.font      = font(bold=True, color="FFFFFF", size=10)
+        c.alignment = align("center", "center", wrap=True)
+        c.border    = border("medium")
+    ws.row_dimensions[4].height = 30
 
-    # サマリーヘッダー
-    for col, text in [("B", "ステータス"), ("C", "件数")]:
-        cell = ws[f"{col}5"]
-        cell.value = text
-        cell.fill = make_fill(COLOR_HEADER_BG)
-        cell.font = make_font(bold=True, color=COLOR_HEADER_FG, size=11)
-        cell.alignment = make_alignment("center", "center")
-        cell.border = make_border("medium")
-    ws.row_dimensions[5].height = 24
+    # 施設シート名
+    sheet_a = FACILITIES[0]["sheet_name"]
+    sheet_b = FACILITIES[1]["sheet_name"]
+    sc_a    = get_column_letter(STATUS_COL)
+    sc_b    = get_column_letter(STATUS_COL)
 
-    # サマリーデータ行
     summary_rows = [
-        (STATUS_MISEI,     COLOR_MISEI,     f'=COUNTIF(管理台帳!H:H,"{STATUS_MISEI}")'),
-        (STATUS_TSUKI,     COLOR_TSUKI,     f'=COUNTIF(管理台帳!H:H,"{STATUS_TSUKI}")'),
-        (STATUS_MIFUCHAKU, COLOR_MIFUCHAKU, f'=COUNTIF(管理台帳!H:H,"{STATUS_MIFUCHAKU}")'),
-        (STATUS_SEIKYU,    COLOR_SEIKYU,    f'=COUNTIF(管理台帳!H:H,"{STATUS_SEIKYU}")'),
+        (STATUS_MISEI,     STATUS_COLORS[STATUS_MISEI]),
+        (STATUS_TSUKI,     STATUS_COLORS[STATUS_TSUKI]),
+        (STATUS_MIFUCHAKU, STATUS_COLORS[STATUS_MIFUCHAKU]),
+        (STATUS_SEIKYU,    STATUS_COLORS[STATUS_SEIKYU]),
     ]
 
-    for i, (label, color, formula) in enumerate(summary_rows, start=6):
-        row = i
-        label_cell = ws.cell(row=row, column=2, value=label)
-        label_cell.fill = make_fill(color)
-        label_cell.font = make_font(size=11)
-        label_cell.alignment = make_alignment("left", "center")
-        label_cell.border = make_border("thin")
+    for i, (status, color) in enumerate(summary_rows, 5):
+        r = i
+        # ステータス名
+        c = ws.cell(row=r, column=2, value=status)
+        c.fill      = fill(color)
+        c.font      = font(size=11, bold=True)
+        c.alignment = align("left", "center")
+        c.border    = border("thin")
 
-        count_cell = ws.cell(row=row, column=3, value=formula)
-        count_cell.fill = make_fill(color)
-        count_cell.font = make_font(bold=True, size=13)
-        count_cell.alignment = make_alignment("center", "center")
-        count_cell.border = make_border("thin")
-        ws.row_dimensions[row].height = 26
+        # 施設Aの件数
+        c = ws.cell(row=r, column=3,
+                    value=f"=COUNTIF('{sheet_a}'!${sc_a}:${sc_a},\"{status}\")")
+        c.fill      = fill(color)
+        c.font      = font(bold=True, size=14)
+        c.alignment = align("center", "center")
+        c.border    = border("thin")
+
+        # 施設Bの件数
+        c = ws.cell(row=r, column=4,
+                    value=f"=COUNTIF('{sheet_b}'!${sc_b}:${sc_b},\"{status}\")")
+        c.fill      = fill(color)
+        c.font      = font(bold=True, size=14)
+        c.alignment = align("center", "center")
+        c.border    = border("thin")
+
+        ws.row_dimensions[r].height = 28
 
     # 合計行
-    total_row = 6 + len(summary_rows)
-    total_label = ws.cell(row=total_row, column=2, value="合計件数")
-    total_label.fill = make_fill("2E75B6")
-    total_label.font = make_font(bold=True, color="FFFFFF", size=11)
-    total_label.alignment = make_alignment("left", "center")
-    total_label.border = make_border("medium")
-
-    total_count = ws.cell(row=total_row, column=3,
-                          value="=COUNTA(管理台帳!B2:B200)")
-    total_count.fill = make_fill("2E75B6")
-    total_count.font = make_font(bold=True, color="FFFFFF", size=13)
-    total_count.alignment = make_alignment("center", "center")
-    total_count.border = make_border("medium")
+    total_row = 5 + len(summary_rows)
+    for col, label in [(2, "合計件数"), (3, f"=COUNTA('{sheet_a}'!C{DATA_START}:C{DATA_END})"),
+                       (4, f"=COUNTA('{sheet_b}'!C{DATA_START}:C{DATA_END})")]:
+        c = ws.cell(row=total_row, column=col, value=label)
+        c.fill      = fill("37474F")
+        c.font      = font(bold=True, color="FFFFFF", size=12)
+        c.alignment = align("center" if col > 2 else "left", "center")
+        c.border    = border("medium")
     ws.row_dimensions[total_row].height = 28
 
-    # spacer
-    spacer_row = total_row + 1
-    ws.row_dimensions[spacer_row].height = 14
+    # 凡例
+    legend_row = total_row + 2
+    ws.merge_cells(f"B{legend_row}:D{legend_row}")
+    c = ws[f"B{legend_row}"]
+    c.value     = "■ 色の見方"
+    c.fill      = fill("F0F4F8")
+    c.font      = font(bold=True, size=11, color="37474F")
+    c.alignment = align("left", "center")
+    ws.row_dimensions[legend_row].height = 24
 
-    # --- 使い方セクション ---
-    instr_start = total_row + 2
-    ws.merge_cells(f"B{instr_start}:C{instr_start}")
-    instr_title = ws[f"B{instr_start}"]
-    instr_title.value = "■ システムの使い方（簡易版）"
-    instr_title.fill = make_fill(COLOR_SECTION_BG)
-    instr_title.font = make_font(bold=True, size=12, color="1F4E79")
-    instr_title.alignment = make_alignment("left", "center")
-    ws.row_dimensions[instr_start].height = 26
-
-    instructions = [
-        "① 「管理台帳」シートに患者情報を入力してください。",
-        "② 医療券・介護券が届いたら、到着日を入力します。",
-        "③ 請求可能になったらステータスを「請求済み」に更新します。",
-        "④ 未請求・追跡状況はこのダッシュボードで確認できます。",
-        "⑤ 詳しい使い方は「使い方」シートをご参照ください。",
+    legends = [
+        (STATUS_MISEI,     STATUS_COLORS[STATUS_MISEI],     "券到着済みで未請求。早めに請求を。"),
+        (STATUS_TSUKI,     STATUS_COLORS[STATUS_TSUKI],     "月遅れ請求待ち。期限を確認してください。"),
+        (STATUS_MIFUCHAKU, STATUS_COLORS[STATUS_MIFUCHAKU], "券が届いていない。施設/市役所に連絡を。"),
+        (STATUS_SEIKYU,    STATUS_COLORS[STATUS_SEIKYU],    "請求完了済み。"),
     ]
+    for i, (status, color, desc) in enumerate(legends, legend_row + 1):
+        c = ws.cell(row=i, column=2, value=f"  {status}")
+        c.fill      = fill(color)
+        c.font      = font(size=10, bold=True)
+        c.alignment = align("left", "center")
+        c.border    = border("thin")
 
-    for j, text in enumerate(instructions, start=instr_start + 1):
-        ws.merge_cells(f"B{j}:C{j}")
-        cell = ws[f"B{j}"]
-        cell.value = text
-        cell.font = make_font(size=10)
-        cell.alignment = make_alignment("left", "center")
-        if j % 2 == 0:
-            cell.fill = make_fill("F0F4F8")
-        ws.row_dimensions[j].height = 22
+        c2 = ws.cell(row=i, column=3, value=desc)
+        c2.fill      = fill(color)
+        c2.font      = font(size=10)
+        c2.alignment = align("left", "center")
+        ws.merge_cells(f"C{i}:D{i}")
+        c2.border    = border("thin")
 
-    # 作成日
-    last_row = instr_start + len(instructions) + 2
-    ws.merge_cells(f"B{last_row}:C{last_row}")
-    date_cell = ws[f"B{last_row}"]
-    date_cell.value = f"作成日: {datetime.now().strftime('%Y年%m月%d日')}"
-    date_cell.font = make_font(size=9, color="888888")
-    date_cell.alignment = make_alignment("right", "center")
+        ws.row_dimensions[i].height = 22
 
     return ws
 
 
 # ============================================================
-# シート3: 使い方
+# 使い方シート
 # ============================================================
 
-def build_howto_sheet(wb: Workbook):
+def build_howto(wb: Workbook):
     ws = wb.create_sheet(title="使い方")
     ws.sheet_view.showGridLines = False
+    ws.column_dimensions["A"].width = 3
+    ws.column_dimensions["B"].width = 20
+    ws.column_dimensions["C"].width = 52
+    ws.column_dimensions["D"].width = 3
 
-    # 列幅
-    ws.column_dimensions["A"].width = 4
-    ws.column_dimensions["B"].width = 22
-    ws.column_dimensions["C"].width = 50
-    ws.column_dimensions["D"].width = 4
+    r = 1
 
-    row = 1
-
-    def add_title(text, r):
+    def title_row(text):
+        nonlocal r
         ws.merge_cells(f"B{r}:C{r}")
-        cell = ws[f"B{r}"]
-        cell.value = text
-        cell.fill = make_fill(COLOR_DASHBOARD_TITLE_BG)
-        cell.font = make_font(bold=True, color=COLOR_HEADER_FG, size=15)
-        cell.alignment = make_alignment("center", "center")
-        ws.row_dimensions[r].height = 38
-        return r + 1
+        c = ws[f"B{r}"]
+        c.value     = text
+        c.fill      = fill("1F4E79")
+        c.font      = font(bold=True, color="FFFFFF", size=14)
+        c.alignment = align("center", "center")
+        ws.row_dimensions[r].height = 34
+        r += 1
 
-    def add_section(text, r):
+    def section(text):
+        nonlocal r
         ws.merge_cells(f"B{r}:C{r}")
-        cell = ws[f"B{r}"]
-        cell.value = text
-        cell.fill = make_fill(COLOR_SECTION_BG)
-        cell.font = make_font(bold=True, size=12, color="1F4E79")
-        cell.alignment = make_alignment("left", "center")
-        ws.row_dimensions[r].height = 26
-        return r + 1
+        c = ws[f"B{r}"]
+        c.value     = text
+        c.fill      = fill("D6E4F0")
+        c.font      = font(bold=True, size=11, color="1F4E79")
+        c.alignment = align("left", "center")
+        ws.row_dimensions[r].height = 24
+        r += 1
 
-    def add_row_two_col(label, content, r, label_bold=False, bg_color=None):
-        bg = bg_color or "FFFFFF"
-        label_cell = ws.cell(row=r, column=2, value=label)
-        content_cell = ws.cell(row=r, column=3, value=content)
-        for cell in [label_cell, content_cell]:
-            cell.fill = make_fill(bg)
-            cell.border = make_border("thin")
-            cell.alignment = make_alignment("left", "center", wrap=True)
-        label_cell.font = make_font(bold=label_bold, size=10)
-        content_cell.font = make_font(size=10)
+    def row2col(label, content, even=False):
+        nonlocal r
+        bg = "F8F8FF" if even else "FFFFFF"
+        lc = ws.cell(row=r, column=2, value=label)
+        lc.fill = fill(bg); lc.font = font(bold=True, size=10)
+        lc.alignment = align("left", "center"); lc.border = border("thin")
+        cc = ws.cell(row=r, column=3, value=content)
+        cc.fill = fill(bg); cc.font = font(size=10)
+        cc.alignment = align("left", "center", wrap=True); cc.border = border("thin")
         ws.row_dimensions[r].height = 22
-        return r + 1
+        r += 1
 
-    def add_spacer(r, height=10):
-        ws.row_dimensions[r].height = height
-        return r + 1
+    def spacer(h=8):
+        nonlocal r
+        ws.row_dimensions[r].height = h
+        r += 1
 
-    # タイトル
-    row = add_title("訪問診療 券管理台帳 - 使い方ガイド", row)
-    row = add_spacer(row)
+    title_row("訪問診療 券管理台帳　使い方ガイド")
+    spacer()
 
-    # --- 概要 ---
-    row = add_section("【概要】このシステムについて", row)
-    ws.merge_cells(f"B{row}:C{row}")
-    cell = ws[f"B{row}"]
-    cell.value = ("このExcelファイルは、生活保護・介護保険の訪問診療患者の"
-                  "医療券・介護券の管理と請求追跡を効率化するためのツールです。")
-    cell.font = make_font(size=10)
-    cell.alignment = make_alignment("left", "center", wrap=True)
-    ws.row_dimensions[row].height = 36
-    row += 1
-    row = add_spacer(row)
-
-    # --- 基本的な使い方 ---
-    row = add_section("【基本的な使い方】ワークフロー", row)
-
+    section("【施設シートの使い方】")
     steps = [
-        ("① 患者情報の登録",
-         "訪問実施後すぐに「管理台帳」シートへ患者名・訪問日・請求対象月・券種別・担当者を入力してください。"),
-        ("② 初期ステータス設定",
-         "券がまだ届いていない場合は請求ステータスを「未請求」に設定します。"),
-        ("③ 券到着時の更新",
-         "医療券・介護券が届いたら、各到着日欄に日付を入力します（形式: YYYY/MM/DD）。"),
-        ("④ 月遅れ対応",
-         "当月中に券が届かない場合は「月遅れ待ち」に変更し、翌月以降も追跡します。"),
-        ("⑤ 請求完了時",
-         "請求が完了したら「請求済み」に変更し、請求日を入力してください。"),
-        ("⑥ 未着が長期化した場合",
-         "券がなかなか届かない場合は「券未着-継続追跡」に設定し、メモ欄に状況を記録します。"),
-        ("⑦ 定期確認",
-         "「ダッシュボード」シートで未請求・追跡中の件数を定期的に確認してください。"),
+        ("① 患者情報を登録",    "訪問後すぐに、担当施設のシートに患者IDと患者名・訪問日・請求対象月・券種別を入力します。"),
+        ("② 初期ステータス",    "券が届いていない場合は「未請求」、届いている場合はそのまま請求準備をします。"),
+        ("③ 券が届いたら",      "医療券または介護券の到着日欄に日付を入力します（例：2025/06/10）。"),
+        ("④ 月内に届かない",    "当月中に届かない場合は「月遅れ待ち」に変更します。翌月以降に届いたら請求します。"),
+        ("⑤ 請求完了後",        "「請求済み」に変更し、請求日を入力してください。"),
+        ("⑥ 券が届かない場合", "「券未着-継続追跡」に変更し、メモ欄に連絡した日・相手・結果を記録します。"),
+        ("⑦ 定期確認",          "「ダッシュボード」シートで2施設の未請求・追跡中の件数を毎月確認します。"),
     ]
+    for i, (k, v) in enumerate(steps):
+        row2col(k, v, even=(i % 2 == 0))
+    spacer()
 
-    for i, (label, content) in enumerate(steps):
-        bg = "F8F8FF" if i % 2 == 0 else "FFFFFF"
-        row = add_row_two_col(label, content, row, label_bold=True, bg_color=bg)
-
-    row = add_spacer(row)
-
-    # --- ステータスの説明 ---
-    row = add_section("【ステータス説明】各ステータスの意味", row)
-
-    # ヘッダー
-    for col, text in [(2, "ステータス"), (3, "説明・対応方法")]:
-        cell = ws.cell(row=row, column=col, value=text)
-        cell.fill = make_fill(COLOR_HEADER_BG)
-        cell.font = make_font(bold=True, color=COLOR_HEADER_FG, size=10)
-        cell.alignment = make_alignment("center", "center")
-        cell.border = make_border("medium")
-    ws.row_dimensions[row].height = 22
-    row += 1
-
-    status_descriptions = [
-        (STATUS_MISEI,    COLOR_MISEI,
-         "券がまだ到着していないか、まだ請求手続きが完了していない状態。優先的に確認が必要です。"),
-        (STATUS_TSUKI,    COLOR_TSUKI,
-         "当月内での請求が間に合わず、翌月以降の月遅れ請求を待っている状態。期限管理に注意してください。"),
-        (STATUS_SEIKYU,   COLOR_SEIKYU,
-         "券の確認が取れ、請求手続きが完了した状態。請求日を必ず入力してください。"),
-        (STATUS_MIFUCHAKU, COLOR_MIFUCHAKU,
-         "長期間にわたり券が届いていない状態。関係機関へ問い合わせ・督促が必要です。メモ欄に対応状況を記録してください。"),
+    section("【ステータスの意味】")
+    status_desc = [
+        ("🔴 未請求",           "券が届いており、まだ請求が完了していない状態。"),
+        ("🟡 月遅れ待ち",       "当月中に券が届かず、翌月以降の請求を待っている状態。"),
+        ("🟠 券未着-継続追跡",   "券がずっと届いていない。施設や市役所へ連絡して催促が必要。"),
+        ("🟢 請求済み",          "請求手続きが完了した状態。"),
     ]
+    for i, (k, v) in enumerate(status_desc):
+        row2col(k, v, even=(i % 2 == 0))
+    spacer()
 
-    for status, color, desc in status_descriptions:
-        label_cell = ws.cell(row=row, column=2, value=status)
-        desc_cell = ws.cell(row=row, column=3, value=desc)
-        for cell in [label_cell, desc_cell]:
-            cell.fill = make_fill(color)
-            cell.font = make_font(size=10)
-            cell.border = make_border("thin")
-            cell.alignment = make_alignment("left", "center", wrap=True)
-        ws.row_dimensions[row].height = 36
-        row += 1
+    section("【券が届かないときの連絡先】")
+    for fac in FACILITIES:
+        row2col(fac["name"], f"TEL：{fac['tel']}　　各施設のシート上部にも記載しています。", even=False)
+    spacer()
 
-    row = add_spacer(row)
-
-    # --- 各列の説明 ---
-    row = add_section("【列の説明】管理台帳の各列について", row)
-
-    col_descriptions = [
-        ("No",           "自動連番。手動で入力してください。"),
-        ("患者名",        "患者のフルネームを入力します。"),
-        ("訪問日",        "実際に訪問した日付を入力します（YYYY/MM/DD形式）。"),
-        ("請求対象月",    "請求の対象となる月を「YYYY年M月」の形式で入力します（例: 2025年5月）。"),
-        ("券種別",        "ドロップダウンから選択: 医療券 / 介護券 / 医療券+介護券"),
-        ("医療券到着日",  "医療券が届いた日付。届いていない場合は空欄のままにします。"),
-        ("介護券到着日",  "介護券が届いた日付。届いていない場合は空欄のままにします。"),
-        ("請求ステータス", "ドロップダウンから選択。行の背景色が自動的に変わります。"),
-        ("請求日",        "実際に請求手続きを行った日付。請求済みの場合に入力します。"),
-        ("担当者",        "この患者を担当するスタッフ名を入力します。"),
-        ("メモ",          "追跡状況や特記事項を自由に記入します。"),
+    section("【運用のポイント】")
+    tips = [
+        "毎月レセプト締め前にダッシュボードを確認する習慣をつけましょう。",
+        "「券未着-継続追跡」が残っている患者は月1回以上、施設か市役所へ確認を。",
+        "患者IDは電子カルテ番号と統一すると照合しやすいです（例：H001＝ハートワン、Y001＝養護）。",
+        "メモ欄には「〇月〇日 施設に電話→来週送付予定」など対応履歴を残すと引継ぎに便利です。",
+        "定期的にファイルをバックアップしてください。",
     ]
-
-    for i, (label, content) in enumerate(col_descriptions):
-        bg = "F0F4F8" if i % 2 == 0 else "FFFFFF"
-        row = add_row_two_col(label, content, row, label_bold=True, bg_color=bg)
-
-    row = add_spacer(row)
-
-    # --- 注意事項 ---
-    row = add_section("【注意事項】", row)
-    notes = [
-        "・データは行2〜200まで入力できます。それ以上必要な場合は行をコピーして追加してください。",
-        "・日付のセルはYYYY/MM/DD形式で入力してください。",
-        "・ドロップダウン以外の値を入力するとエラーが表示される場合があります。",
-        "・ダッシュボードのカウントはCOUNTIF関数を使用しており、自動更新されます。",
-        "・定期的にファイルのバックアップを取ることを推奨します。",
-    ]
-    for note in notes:
-        ws.merge_cells(f"B{row}:C{row}")
-        cell = ws[f"B{row}"]
-        cell.value = note
-        cell.font = make_font(size=10)
-        cell.alignment = make_alignment("left", "center")
-        ws.row_dimensions[row].height = 20
-        row += 1
+    for i, t in enumerate(tips):
+        ws.merge_cells(f"B{r}:C{r}")
+        c = ws[f"B{r}"]
+        c.value     = f"・{t}"
+        c.fill      = fill("F8F8FF" if i % 2 == 0 else "FFFFFF")
+        c.font      = font(size=10)
+        c.alignment = align("left", "center", wrap=True)
+        ws.row_dimensions[r].height = 22
+        r += 1
 
     return ws
 
 
 # ============================================================
-# メイン処理
+# メイン
 # ============================================================
 
 def main():
@@ -580,25 +499,26 @@ def main():
 
     try:
         wb = Workbook()
+        # デフォルトシートを削除
+        wb.remove(wb.active)
 
-        print("  シート1「管理台帳」を作成中...")
-        build_kanri_sheet(wb)
+        print("  ダッシュボードシートを作成中...")
+        build_dashboard(wb)
 
-        print("  シート2「ダッシュボード」を作成中...")
-        build_dashboard_sheet(wb)
+        for fac in FACILITIES:
+            print(f"  「{fac['sheet_name']}」シートを作成中...")
+            build_facility_sheet(wb, fac, fac["sheet_name"])
 
-        print("  シート3「使い方」を作成中...")
-        build_howto_sheet(wb)
+        print("  「使い方」シートを作成中...")
+        build_howto(wb)
 
-        # 管理台帳を最初のシートとしてアクティブに設定
-        wb.active = wb["管理台帳"]
+        # ダッシュボードをアクティブに
+        wb.active = wb["ダッシュボード"]
 
         print(f"  ファイルを保存中: {OUTPUT_FILENAME}")
         wb.save(OUTPUT_FILENAME)
 
-        import os
         abs_path = os.path.abspath(OUTPUT_FILENAME)
-
         print()
         print("=" * 60)
         print("生成完了!")
@@ -606,16 +526,14 @@ def main():
         print(f"  保存場所   : {abs_path}")
         print()
         print("  含まれるシート:")
-        print("    1. 管理台帳      - 患者・券情報の入力・追跡")
-        print("    2. ダッシュボード - 請求状況の集計表示")
-        print("    3. 使い方        - 操作マニュアル")
-        print()
-        print("  サンプルデータ: 5件（異なるステータスのサンプルを含む）")
+        print("    1. ダッシュボード       - 2施設合計の請求状況を一目確認")
+        for fac in FACILITIES:
+            print(f"    2. {fac['sheet_name']}  - 個別管理台帳")
+        print("    4. 使い方               - 操作マニュアル")
         print("=" * 60)
 
     except PermissionError:
-        print(f"エラー: ファイル '{OUTPUT_FILENAME}' が別のプログラムで開かれています。")
-        print("Excelを閉じてから再実行してください。")
+        print(f"エラー: ファイルが別のプログラムで開かれています。Excelを閉じてから再実行してください。")
         sys.exit(1)
     except Exception as e:
         print(f"エラーが発生しました: {e}")
