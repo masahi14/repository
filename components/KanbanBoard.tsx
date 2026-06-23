@@ -4,7 +4,7 @@ import { useState } from "react";
 import StageColumn from "./StageColumn";
 import StaffSummary from "./StaffSummary";
 import AddPatientModal from "./AddPatientModal";
-import { STAGE_NAMES } from "@/lib/actions";
+import { STAGE_NAMES } from "@/lib/constants";
 
 type Staff = { id: string; name: string; color: string };
 

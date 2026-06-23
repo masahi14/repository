@@ -3,8 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "./db";
 
-export const STAGE_NAMES = ["オートセグメント", "プランニング", "サポート設定", "プリンティング"];
-
 // 患者追加
 export async function addPatient(formData: FormData) {
   const patientName = formData.get("patientName") as string;
