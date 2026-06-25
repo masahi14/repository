@@ -21,7 +21,6 @@ export default function AddPatientModal({ onClose, staffList }: Props) {
   }
 
   async function handleSubmit(formData: FormData) {
-    // 最初に選択したスタッフをステージ1に割り当て
     if (selectedStaffIds.length > 0) {
       formData.set("staffId", selectedStaffIds[0]);
     }
@@ -58,34 +57,6 @@ export default function AddPatientModal({ onClose, staffList }: Props) {
             />
           </div>
 
-          {/* 担当者 */}
-          {staffList.length > 0 && (
-            <div>
-              <label className="text-sm font-medium text-gray-700 block mb-2">
-                担当者（複数選択可）
-              </label>
-              <div className="grid grid-cols-3 gap-1.5 border border-gray-200 rounded-lg p-2 bg-gray-50 max-h-40 overflow-y-auto">
-                {staffList.map((s) => {
-                  const checked = selectedStaffIds.includes(s.id);
-                  return (
-                    <label
-                      key={s.id}
-                      className="flex items-center gap-1.5 cursor-pointer select-none"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleStaff(s.id)}
-                        className="w-3.5 h-3.5 accent-sky-500 flex-shrink-0"
-                      />
-                      <span className="text-xs text-gray-700 truncate">{s.name}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           {/* 期限 */}
           <div>
             <label className="text-sm font-medium text-gray-700 block mb-1">期限</label>
@@ -121,6 +92,34 @@ export default function AddPatientModal({ onClose, staffList }: Props) {
               <p className="text-xs text-gray-400 mt-0.5">期限の何日前から</p>
             </div>
           </div>
+
+          {/* 担当者 */}
+          {staffList.length > 0 && (
+            <div>
+              <label className="text-sm font-medium text-gray-700 block mb-2">
+                担当者（複数選択可）
+              </label>
+              <div className="grid grid-cols-3 gap-1.5 border border-gray-200 rounded-lg p-2 bg-gray-50 max-h-44 overflow-y-auto">
+                {staffList.map((s) => {
+                  const checked = selectedStaffIds.includes(s.id);
+                  return (
+                    <label
+                      key={s.id}
+                      className="flex items-center gap-1.5 cursor-pointer select-none"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleStaff(s.id)}
+                        className="w-3.5 h-3.5 accent-sky-500 flex-shrink-0"
+                      />
+                      <span className="text-xs text-gray-700 truncate">{s.name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* ボタン */}
           <div className="flex gap-2 pt-1">
