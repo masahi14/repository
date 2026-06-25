@@ -73,17 +73,6 @@ export default function KanbanBoard({ patients, staffList }: Props) {
             </a>
           </div>
         </div>
-        {/* 担当者タスク数バー */}
-        <div className="bg-slate-600 border-t border-slate-500">
-          <div className="max-w-screen-xl mx-auto px-5 py-2 flex items-center gap-3">
-            <span className="text-xs text-slate-300 font-medium whitespace-nowrap">担当者別タスク数</span>
-            <StaffSummary
-              staffList={staffWithCount}
-              onFilter={setActiveFilter}
-              activeFilter={activeFilter}
-            />
-          </div>
-        </div>
       </header>
 
       {/* カンバンボード */}
