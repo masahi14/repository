@@ -59,15 +59,13 @@ export default function StageColumn({
             <span className="bg-white/20 text-white text-xs rounded-full px-2 py-0.5 font-semibold">
               {patients.length}件
             </span>
-            {stageNumber === 1 && (
-              <button
-                onClick={onAddPatient}
-                className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white text-sm font-bold transition-colors"
-                title="患者追加"
-              >
-                +
-              </button>
-            )}
+            <button
+              onClick={onAddPatient}
+              className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white text-sm font-bold transition-colors"
+              title="患者追加"
+            >
+              +
+            </button>
           </div>
         </div>
         <div className="text-xs text-slate-300 mt-1 ml-8">標準作業時間：{standardDays}日</div>
