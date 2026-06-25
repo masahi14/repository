@@ -5,12 +5,11 @@ const adapter = new PrismaBetterSqlite3({ url: "./dev.db" });
 const prisma = new PrismaClient({ adapter });
 
 const STAFF_NAMES = [
-  "原", "ゆさな", "白内",
   "松信", "横瀬", "白田",
   "箕輪", "深沢", "仙波",
   "郡司", "日向寺", "飯田",
   "篠原", "澤野", "前野",
-  "小林", "浅井", "諸谷",
+  "小林", "浅井",
 ];
 
 const COLORS = [
