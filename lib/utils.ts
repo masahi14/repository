@@ -5,12 +5,16 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function getDeadlineStatus(deadline: Date | null): "red" | "yellow" | "green" | "none" {
+export function getDeadlineStatus(
+  deadline: Date | null,
+  yellowDays = 3,
+  redDays = 1
+): "red" | "yellow" | "green" | "none" {
   if (!deadline) return "none";
   const now = new Date();
   const diffDays = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  if (diffDays < 0) return "red";
-  if (diffDays <= 3) return "yellow";
+  if (diffDays <= redDays) return "red";
+  if (diffDays <= yellowDays) return "yellow";
   return "green";
 }
 

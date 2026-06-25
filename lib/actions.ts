@@ -9,6 +9,9 @@ export async function addPatient(formData: FormData) {
   const patientId = formData.get("patientId") as string;
   const note = formData.get("note") as string;
   const deadlineStr = formData.get("deadline") as string;
+  const staffId = formData.get("staffId") as string;
+  const yellowDays = parseInt(formData.get("yellowDays") as string) || 3;
+  const redDays = parseInt(formData.get("redDays") as string) || 1;
 
   const patient = await prisma.patient.create({
     data: {
@@ -16,6 +19,8 @@ export async function addPatient(formData: FormData) {
       patientId: patientId || null,
       note: note || null,
       deadline: deadlineStr ? new Date(deadlineStr) : null,
+      yellowDays,
+      redDays,
       currentStage: 1,
     },
   });
@@ -25,6 +30,7 @@ export async function addPatient(formData: FormData) {
     data: {
       patientId: patient.id,
       stage: 1,
+      staffId: staffId || null,
     },
   });
 

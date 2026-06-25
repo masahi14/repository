@@ -16,6 +16,8 @@ type Patient = {
   patientId: string | null;
   note: string | null;
   deadline: Date | null;
+  yellowDays: number;
+  redDays: number;
   assignments: Assignment[];
 };
 

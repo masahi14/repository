@@ -22,6 +22,8 @@ type Patient = {
   patientId: string | null;
   note: string | null;
   deadline: Date | null;
+  yellowDays: number;
+  redDays: number;
   assignments: Assignment[];
   currentStage: number;
 };
@@ -102,7 +104,7 @@ export default function KanbanBoard({ patients, staffList }: Props) {
       </main>
 
       {showModal && (
-        <AddPatientModal onClose={() => setShowModal(false)} />
+        <AddPatientModal onClose={() => setShowModal(false)} staffList={staffList} />
       )}
     </div>
   );

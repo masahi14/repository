@@ -23,6 +23,8 @@ model Patient {
   currentStage Int               @default(1) @map("current_stage")
   note         String?
   deadline     DateTime?         @db.Date
+  yellowDays   Int               @default(3) @map("yellow_days")
+  redDays      Int               @default(1) @map("red_days")
   archived     Boolean           @default(false)
   createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz

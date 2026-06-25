@@ -20,6 +20,8 @@ type Patient = {
   patientId: string | null;
   note: string | null;
   deadline: Date | null;
+  yellowDays: number;
+  redDays: number;
   assignments: Assignment[];
 };
 
@@ -50,7 +52,7 @@ export default function PatientCard({ patient, stage, allStaff, highlighted }: P
   const [pending, setPending] = useState(false);
 
   const currentAssignment = patient.assignments.find((a) => a.stage === stage);
-  const deadlineStatus = getDeadlineStatus(patient.deadline);
+  const deadlineStatus = getDeadlineStatus(patient.deadline, patient.yellowDays, patient.redDays);
   const stageDays = currentAssignment ? getStageDays(currentAssignment.assignedAt) : 0;
 
   async function handleComplete() {
