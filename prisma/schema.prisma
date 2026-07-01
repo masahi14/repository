@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Patient {
+  id           String    @id @default(cuid())
+  patientName  String    @map("patient_name")
+  patientId    String?   @map("patient_id")
+  currentStage Int       @default(1) @map("current_stage")
+  note         String?
+  deadline     DateTime?
+  yellowDays   Int       @default(3) @map("yellow_days")
+  redDays      Int       @default(1) @map("red_days")
+  archived     Boolean   @default(false)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  assignments PatientAssignment[]
+
+  @@map("patients")
+}
+
+model Staff {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  active    Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  assignments PatientAssignment[]
+
+  @@map("staff")
+}
+
+model PatientAssignment {
+  id        String   @id @default(cuid())
+  patientId String   @map("patient_id")
+  staffId   String   @map("staff_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  staff   Staff   @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@unique([patientId, staffId])
+  @@map("patient_assignments")
+}
