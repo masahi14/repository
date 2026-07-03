@@ -1,14 +1,13 @@
 import { prisma } from "@/lib/db";
 import Link from "next/link";
-import { addStaff, deleteStaff } from "@/lib/actions";
+import { addStaff } from "@/lib/actions";
+import { DeleteStaffButton } from "@/components/DeleteStaffButton";
 
 export const dynamic = "force-dynamic";
-
 const PRESET_COLORS = [
   "#1d4ed8", "#0891b2", "#059669", "#d97706",
   "#dc2626", "#7c3aed", "#db2777", "#65a30d",
 ];
-
 export default async function StaffPage() {
   const staffList = await prisma.staff.findMany({ orderBy: { createdAt: "asc" } });
 
@@ -82,18 +81,7 @@ export default async function StaffPage() {
                     </span>
                     <span className="font-medium text-gray-700">{s.name}</span>
                   </div>
-                  <form action={deleteStaff.bind(null, s.id)}>
-                    <button
-                      type="submit"
-                      className="text-xs text-red-400 hover:text-red-600 border border-red-200 hover:border-red-400 rounded px-2 py-1 transition-colors"
-                      onClick={(e) => {
-                        if (!confirm(`「${s.name}」を削除しますか？`)) e.preventDefault();
-                      }}
-                    >
-                      削除
-                    </button>
-                  </form>
-                </li>
+                  <DeleteStaffButton id={s.id} name={s.name} />               </li>
               ))}
             </ul>
           )}
