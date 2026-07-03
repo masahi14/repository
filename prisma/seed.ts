@@ -15,6 +15,8 @@ const STAFF_NAMES = [
   "前野",
   "小林",
   "浅井",
+  "笑舞先生",
+  "院長",
 ];
 
 async function main() {
