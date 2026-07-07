@@ -11,41 +11,39 @@ type Staff = { id: string; name: string; color: string };
 type Assignment = {
   id: string;
   stage: number;
-  staffId: string | null;
   assignedAt: Date;
-  staff: Staff | null;
+  staffAssignments: { staffId: string; staff: Staff }[];
 };
 
-type Patient = {
+type CaseItem = {
   id: string;
-  patientName: string;
-  patientId: string | null;
   note: string | null;
   deadline: Date | null;
   yellowDays: number;
   redDays: number;
-  assignments: Assignment[];
+  caseType: string;
   currentStage: number;
+  patient: { patientName: string; patientId: string | null };
+  assignments: Assignment[];
 };
 
 type Props = {
-  patients: Patient[];
+  cases: CaseItem[];
   staffList: Staff[];
 };
 
-export default function KanbanBoard({ patients, staffList }: Props) {
+export default function KanbanBoard({ cases, staffList }: Props) {
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
 
   const staffWithCount = staffList.map((s) => ({
     ...s,
-    taskCount: patients.filter((p) =>
-      p.assignments.some((a) => a.staffId === s.id)
+    taskCount: cases.filter((c) =>
+      c.assignments.some((a) => a.staffAssignments.some((sa) => sa.staffId === s.id))
     ).length,
   }));
 
-  const patientsByStage = (stage: number) =>
-    patients.filter((p) => p.currentStage === stage);
+  const casesByStage = (stage: number) => cases.filter((c) => c.currentStage === stage);
 
   return (
     <div className="min-h-screen bg-sky-100">
@@ -94,7 +92,7 @@ export default function KanbanBoard({ patients, staffList }: Props) {
               key={i}
               stageName={name}
               stageNumber={i + 1}
-              patients={patientsByStage(i + 1)}
+              cases={casesByStage(i + 1)}
               allStaff={staffList}
               activeFilterStaffId={activeFilter}
               onAddPatient={() => setShowModal(true)}
@@ -109,4 +107,3 @@ export default function KanbanBoard({ patients, staffList }: Props) {
     </div>
   );
 }
-

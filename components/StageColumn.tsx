@@ -5,19 +5,18 @@ type Staff = { id: string; name: string; color: string };
 type Assignment = {
   id: string;
   stage: number;
-  staffId: string | null;
   assignedAt: Date;
-  staff: Staff | null;
+  staffAssignments: { staffId: string; staff: Staff }[];
 };
 
-type Patient = {
+type CaseItem = {
   id: string;
-  patientName: string;
-  patientId: string | null;
   note: string | null;
   deadline: Date | null;
   yellowDays: number;
   redDays: number;
+  caseType: string;
+  patient: { patientName: string; patientId: string | null };
   assignments: Assignment[];
 };
 
@@ -27,7 +26,7 @@ const STAGE_NUMS = ["①", "②", "③", "④"];
 type Props = {
   stageName: string;
   stageNumber: number;
-  patients: Patient[];
+  cases: CaseItem[];
   allStaff: Staff[];
   activeFilterStaffId: string | null;
   onAddPatient: () => void;
@@ -36,7 +35,7 @@ type Props = {
 export default function StageColumn({
   stageName,
   stageNumber,
-  patients,
+  cases,
   allStaff,
   activeFilterStaffId,
   onAddPatient,
@@ -57,7 +56,7 @@ export default function StageColumn({
           </div>
           <div className="flex items-center gap-1.5">
             <span className="bg-white/20 text-white text-xs rounded-full px-2 py-0.5 font-semibold">
-              {patients.length}件
+              {cases.length}件
             </span>
             <button
               onClick={onAddPatient}
@@ -73,25 +72,25 @@ export default function StageColumn({
 
       {/* カード一覧 */}
       <div className="flex flex-col gap-2 flex-1">
-        {patients.length === 0 ? (
+        {cases.length === 0 ? (
           <div className="text-center text-slate-400 text-sm py-8 border-2 border-dashed border-slate-200 rounded-lg bg-white/50">
             患者なし
           </div>
         ) : (
-          patients.map((p) => {
-            const assignment = p.assignments.find((a) => a.stage === stageNumber);
-            const isHighlighted =
-              activeFilterStaffId !== null && assignment?.staffId === activeFilterStaffId;
-            const isHidden =
-              activeFilterStaffId !== null && assignment?.staffId !== activeFilterStaffId;
+          cases.map((c) => {
+            const assignment = c.assignments.find((a) => a.stage === stageNumber);
+            const isAssignedToFilter =
+              assignment?.staffAssignments.some((sa) => sa.staffId === activeFilterStaffId) ?? false;
+            const isHighlighted = activeFilterStaffId !== null && isAssignedToFilter;
+            const isHidden = activeFilterStaffId !== null && !isAssignedToFilter;
 
             return (
               <div
-                key={p.id}
+                key={c.id}
                 className={`transition-opacity ${isHidden ? "opacity-20" : "opacity-100"}`}
               >
                 <PatientCard
-                  patient={p}
+                  caseItem={c}
                   stage={stageNumber}
                   allStaff={allStaff}
                   highlighted={isHighlighted}
@@ -104,4 +103,3 @@ export default function StageColumn({
     </div>
   );
 }
-

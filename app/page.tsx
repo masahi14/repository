@@ -4,12 +4,13 @@ import KanbanBoard from "@/components/KanbanBoard";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [patients, staffList] = await Promise.all([
-    prisma.patient.findMany({
+  const [cases, staffList] = await Promise.all([
+    prisma.case.findMany({
       where: { archived: false },
       include: {
+        patient: true,
         assignments: {
-          include: { staff: true },
+          include: { staffAssignments: { include: { staff: true } } },
         },
       },
       orderBy: { createdAt: "asc" },
@@ -17,5 +18,5 @@ export default async function HomePage() {
     prisma.staff.findMany({ orderBy: { createdAt: "asc" } }),
   ]);
 
-  return <KanbanBoard patients={patients} staffList={staffList} />;
+  return <KanbanBoard cases={cases} staffList={staffList} />;
 }

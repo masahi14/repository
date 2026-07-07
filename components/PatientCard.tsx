@@ -9,24 +9,23 @@ type Staff = { id: string; name: string; color: string };
 type Assignment = {
   id: string;
   stage: number;
-  staffId: string | null;
   assignedAt: Date;
-  staff: Staff | null;
+  staffAssignments: { staffId: string; staff: Staff }[];
 };
 
-type Patient = {
+type CaseItem = {
   id: string;
-  patientName: string;
-  patientId: string | null;
   note: string | null;
   deadline: Date | null;
   yellowDays: number;
   redDays: number;
+  caseType: string;
+  patient: { patientName: string; patientId: string | null };
   assignments: Assignment[];
 };
 
 type Props = {
-  patient: Patient;
+  caseItem: CaseItem;
   stage: number;
   allStaff: Staff[];
   highlighted: boolean;
@@ -46,27 +45,32 @@ const STATUS_DOT = {
   none: "bg-slate-300",
 };
 
-export default function PatientCard({ patient, stage, allStaff, highlighted }: Props) {
+export default function PatientCard({ caseItem, stage, allStaff, highlighted }: Props) {
   const [noteEdit, setNoteEdit] = useState(false);
-  const [noteValue, setNoteValue] = useState(patient.note || "");
+  const [noteValue, setNoteValue] = useState(caseItem.note || "");
   const [pending, setPending] = useState(false);
+  const [staffPickerOpen, setStaffPickerOpen] = useState(false);
 
-  const currentAssignment = patient.assignments.find((a) => a.stage === stage);
-  const deadlineStatus = getDeadlineStatus(patient.deadline, patient.yellowDays, patient.redDays);
+  const currentAssignment = caseItem.assignments.find((a) => a.stage === stage);
+  const assignedStaffIds = currentAssignment?.staffAssignments.map((sa) => sa.staffId) ?? [];
+  const deadlineStatus = getDeadlineStatus(caseItem.deadline, caseItem.yellowDays, caseItem.redDays);
   const stageDays = currentAssignment ? getStageDays(currentAssignment.assignedAt) : 0;
 
   async function handleComplete() {
     setPending(true);
-    await completeStage(patient.id, stage);
+    await completeStage(caseItem.id, stage);
     setPending(false);
   }
 
-  async function handleAssign(staffId: string) {
-    await assignStaff(patient.id, stage, staffId || null);
+  async function handleToggleStaff(staffId: string) {
+    const next = assignedStaffIds.includes(staffId)
+      ? assignedStaffIds.filter((id) => id !== staffId)
+      : [...assignedStaffIds, staffId];
+    await assignStaff(caseItem.id, stage, next);
   }
 
   async function handleNoteSave() {
-    await updateNote(patient.id, noteValue);
+    await updateNote(caseItem.id, noteValue);
     setNoteEdit(false);
   }
 
@@ -76,41 +80,69 @@ export default function PatientCard({ patient, stage, allStaff, highlighted }: P
         BORDER_COLOR[deadlineStatus]
       } ${highlighted ? "ring-2 ring-sky-400" : ""}`}
     >
-      {/* 患者名・ID */}
+      {/* 患者名・ID・ケース種別 */}
       <div className="flex items-start gap-2 mb-2">
         <span className={`w-2.5 h-2.5 rounded-full mt-1 flex-shrink-0 ${STATUS_DOT[deadlineStatus]}`} />
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-gray-800 text-sm truncate">{patient.patientName}</div>
-          {patient.patientId && (
-            <div className="text-xs text-slate-400">ID: #{patient.patientId}</div>
-          )}
+          <div className="font-semibold text-gray-800 text-sm truncate">{caseItem.patient.patientName}</div>
+          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+            {caseItem.patient.patientId && <span>ID: #{caseItem.patient.patientId}</span>}
+            {caseItem.caseType !== "初回" && (
+              <span className="text-amber-600 bg-amber-50 rounded-full px-1.5 py-0.5">{caseItem.caseType}</span>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* 担当者バッジ（クリックで変更） */}
-      <div className="mb-2">
-        <select
-          className="text-xs border border-slate-200 rounded-full px-2 py-0.5 bg-slate-50 text-slate-600 cursor-pointer"
-          value={currentAssignment?.staffId || ""}
-          onChange={(e) => handleAssign(e.target.value)}
+      {/* 担当者（複数選択・クリックで変更） */}
+      <div className="mb-2 relative">
+        <button
+          type="button"
+          onClick={() => setStaffPickerOpen((v) => !v)}
+          className="flex items-center gap-1 flex-wrap"
         >
-          <option value="">未担当</option>
-          {allStaff.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-        {currentAssignment?.staff && (
-          <span className="inline-flex items-center gap-1 ml-1">
-            <span
-              className="w-4 h-4 rounded-full inline-flex items-center justify-center text-white text-xs font-bold"
-              style={{ backgroundColor: currentAssignment.staff.color }}
-            >
-              {currentAssignment.staff.name[0]}
+          {!currentAssignment || currentAssignment.staffAssignments.length === 0 ? (
+            <span className="text-xs border border-slate-200 rounded-full px-2 py-0.5 bg-slate-50 text-slate-400">
+              担当者を選択
             </span>
-            <span className="text-xs text-slate-500">{currentAssignment.staff.name}</span>
-          </span>
+          ) : (
+            currentAssignment.staffAssignments.map(({ staff }) => (
+              <span
+                key={staff.id}
+                className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-full px-1.5 py-0.5"
+              >
+                <span
+                  className="w-4 h-4 rounded-full inline-flex items-center justify-center text-white text-[10px] font-bold"
+                  style={{ backgroundColor: staff.color }}
+                >
+                  {staff.name[0]}
+                </span>
+                <span className="text-xs text-slate-600">{staff.name}</span>
+              </span>
+            ))
+          )}
+        </button>
+
+        {staffPickerOpen && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setStaffPickerOpen(false)} />
+            <div className="absolute z-20 mt-1 grid grid-cols-2 gap-1 border border-slate-200 rounded-lg p-2 bg-white shadow-lg max-h-48 overflow-y-auto w-56">
+              {allStaff.map((s) => {
+                const checked = assignedStaffIds.includes(s.id);
+                return (
+                  <label key={s.id} className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => handleToggleStaff(s.id)}
+                      className="w-3.5 h-3.5 accent-sky-500 flex-shrink-0"
+                    />
+                    <span className="truncate">{s.name}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
 
@@ -142,14 +174,14 @@ export default function PatientCard({ patient, stage, allStaff, highlighted }: P
         )}
       </div>
 
-      {/* 底部：滞在日数 + 完了ボタン */}
+      {/* 底部：滋在日数 + 完了ボタン */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1 text-xs text-slate-400">
           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="10" strokeWidth="2"/>
             <polyline points="12 6 12 12 16 14" strokeWidth="2"/>
           </svg>
-          滞在{stageDays}日
+          滋在{stageDays}日
         </div>
         <button
           onClick={handleComplete}
@@ -162,4 +194,3 @@ export default function PatientCard({ patient, stage, allStaff, highlighted }: P
     </div>
   );
 }
-
