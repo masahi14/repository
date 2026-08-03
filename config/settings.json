@@ -1,0 +1,11 @@
+{
+  "timing": {
+    "after_code_ms": 300,
+    "after_enter_ms": 400
+  },
+  "test_mode": true,
+  "panel": {
+    "start_x": null,
+    "start_y": null
+  }
+}

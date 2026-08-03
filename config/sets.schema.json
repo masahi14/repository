@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Karte One-Click Sets Configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "sets"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "sets": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/set" }
+    }
+  },
+  "definitions": {
+    "set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "pattern"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "半角英小文字・数字・アンダースコアのみの内部識別子"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "description": "パネルのボタンに表示する名前"
+        },
+        "pattern": {
+          "type": "string",
+          "enum": ["fixed_sequence", "random_pool"]
+        },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/item" }
+        },
+        "pool": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/code" }
+        },
+        "pick_count": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "pattern": { "const": "fixed_sequence" } } },
+          "then": { "required": ["items"] }
+        },
+        {
+          "if": { "properties": { "pattern": { "const": "random_pool" } } },
+          "then": { "required": ["pool", "pick_count"] }
+        }
+      ]
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code"],
+      "properties": {
+        "code": { "$ref": "#/definitions/code" },
+        "note": { "type": "string" },
+        "then": {
+          "type": "string",
+          "enum": ["leave_blank_manual_entry"],
+          "description": "コード確定後、値欄には何も送信せず処理を終了する(実測値・時刻を手入力する項目用)"
+        }
+      }
+    },
+    "code": {
+      "type": "string",
+      "pattern": "^[0-9]{5}$",
+      "description": "5桁の数字コード(カルテソフトの候補呼び出しコード)"
+    }
+  }
+}
