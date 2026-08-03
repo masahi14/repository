@@ -1,7 +1,8 @@
 ; SelectionEngine.ahk
 ;
 ; The only responsibility of this file is picking N unique codes at
-; random from a pool of codes (used by "random_pool" sets like SPT).
+; random from a pool of codes (used by any "random_pool" set defined
+; in config/sets.json).
 ;
 ; IMPORTANT: this file must never grow a function that returns a
 ; number/time value (e.g. a fabricated blood-pressure or duration

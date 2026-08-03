@@ -2,17 +2,6 @@
   "version": 1,
   "sets": [
     {
-      "id": "spt",
-      "label": "SPT",
-      "pattern": "random_pool",
-      "pick_count": 5,
-      "pool": [
-        "90101", "90102", "90103", "90104", "90105",
-        "90106", "90107", "90108", "90109", "90110",
-        "90111", "90112", "90113", "90114", "90115"
-      ]
-    },
-    {
       "id": "hygiene_instruction",
       "label": "歯科衛生実地指導",
       "pattern": "fixed_sequence",
