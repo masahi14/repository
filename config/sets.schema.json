@@ -57,6 +57,13 @@
       ]
     },
     "item": {
+      "description": "方法1(5桁コード+Enter)は code_item、方法2(処置選択表のメニュー選択)は menu_item のいずれか一方のみを満たす。",
+      "oneOf": [
+        { "$ref": "#/definitions/code_item" },
+        { "$ref": "#/definitions/menu_item" }
+      ]
+    },
+    "code_item": {
       "type": "object",
       "additionalProperties": false,
       "required": ["code"],
@@ -70,10 +77,29 @@
         }
       }
     },
+    "menu_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["menu_path"],
+      "properties": {
+        "menu_path": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/menu_key" },
+          "description": "5桁コードが存在しない項目用。「処置選択表」画面(Shift+F1→F2)を開き、矢印キー等でメニューをたどってEnterで確定するまでの、AutoHotkey v2のSend形式キーを1操作ずつ並べた配列。項目ごとに、基準状態(処置選択表が閉じた状態)からEnter確定までの完結したキー列を書く。"
+        },
+        "note": { "type": "string" }
+      }
+    },
     "code": {
       "type": "string",
       "pattern": "^[0-9]{5}$",
       "description": "5桁の数字コード(カルテソフトの候補呼び出しコード)"
+    },
+    "menu_key": {
+      "type": "string",
+      "pattern": "^\\+?\\{[A-Za-z0-9]+\\}$",
+      "description": "AutoHotkey v2のSend/SendInput形式のキー1つ分。例: \"{F2}\"(F2キー)、\"{Down}\"(下矢印)、\"{Enter}\"(Enter)、\"+{F1}\"(Shift+F1)。数値やタイマー値ではなく、あくまでキー入力そのものを表す。"
     }
   }
 }

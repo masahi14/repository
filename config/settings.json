@@ -1,7 +1,8 @@
 {
   "timing": {
     "after_code_ms": 300,
-    "after_enter_ms": 400
+    "after_enter_ms": 400,
+    "after_menu_key_ms": 300
   },
   "test_mode": true,
   "panel": {

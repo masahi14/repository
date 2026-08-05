@@ -66,11 +66,13 @@ if (Test-Path $inputEnginePath) {
 }
 
 # 4. config/sets.json must only use the fields this project's schema
-#    allows for an "item" (code, note, then). Anything else - most
-#    importantly anything numeric like "value"/"bp"/"time" - is a sign
-#    someone is trying to route a fabricated measurement through the
-#    config file instead of leaving it to manual entry.
-$allowedItemKeys = @("code", "note", "then")
+#    allows for an "item" (code, note, then, menu_path). Anything else
+#    - most importantly anything numeric like "value"/"bp"/"time" - is
+#    a sign someone is trying to route a fabricated measurement through
+#    the config file instead of leaving it to manual entry. menu_path
+#    is only ever a list of key-name strings (e.g. "{Down}", "{Enter}")
+#    for items with no 5-digit code - never a numeric value.
+$allowedItemKeys = @("code", "note", "then", "menu_path")
 $setsPath = Join-Path $RepoRoot "config\sets.json"
 if (Test-Path $setsPath) {
     $sets = Get-Content $setsPath -Raw | ConvertFrom-Json
@@ -81,6 +83,13 @@ if (Test-Path $setsPath) {
                 foreach ($k in $keys) {
                     if ($allowedItemKeys -notcontains $k) {
                         $failures += "[schema-violation] config/sets.json: set '$($setDef.id)' has disallowed field '$k'"
+                    }
+                }
+                if ($keys -contains "menu_path") {
+                    foreach ($mk in $item.menu_path) {
+                        if ($mk -notmatch '^\+?\{[A-Za-z0-9]+\}$') {
+                            $failures += "[schema-violation] config/sets.json: set '$($setDef.id)' has a menu_path entry that isn't a plain key name: '$mk'"
+                        }
                     }
                 }
             }
