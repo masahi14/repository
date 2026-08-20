@@ -25,9 +25,15 @@ class Panel {
 
     static Init(sets, settings) {
         Panel._ShowGui(sets, settings)
-        SetTimer(Panel._TrackActiveWindow, 200)
-        OnMessage(0x201, Panel._OnLButtonDown)   ; WM_LBUTTONDOWN -> drag support
-        OnMessage(0x232, Panel._OnMoveEnd)        ; WM_EXITSIZEMOVE -> persist position
+        ; Bare static-method references (e.g. Panel._TrackActiveWindow
+        ; passed directly, without calling it) were rejected by
+        ; SetTimer/OnMessage on the pilot machine ("Invalid callback
+        ; function."/"Missing a required parameter."). Wrapping each
+        ; in a closure that calls the method normally (with parens)
+        ; avoids passing a bare method reference as the callback value.
+        SetTimer((*) => Panel._TrackActiveWindow(), 200)
+        OnMessage(0x201, (wParam, lParam, msg, hwnd) => Panel._OnLButtonDown(wParam, lParam, msg, hwnd))   ; WM_LBUTTONDOWN -> drag support
+        OnMessage(0x232, (wParam, lParam, msg, hwnd) => Panel._OnMoveEnd(wParam, lParam, msg, hwnd))        ; WM_EXITSIZEMOVE -> persist position
     }
 
     ; Rebuilds just the GUI/buttons (used when config is reloaded from
