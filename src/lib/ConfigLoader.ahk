@@ -54,6 +54,9 @@ class ConfigLoader {
         }
     }
 
+    ; Best-effort: a failure here (e.g. the cache folder can't be
+    ; created yet on first run) must never surface as a config load
+    ; failure, since the config itself loaded and validated fine.
     static _SaveCache(cachePath, raw) {
         try {
             SplitPath(cachePath, , &dir)
@@ -62,6 +65,9 @@ class ConfigLoader {
             f := FileOpen(cachePath, "w", "UTF-8")
             f.Write(raw)
             f.Close()
+        } catch {
+            ; Swallow: caching is a nice-to-have fallback mechanism,
+            ; not a requirement for the config to load successfully.
         }
     }
 
