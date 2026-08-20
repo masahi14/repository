@@ -33,11 +33,21 @@ class ConfigLoader {
             ConfigLoader._SaveCache(cachePath, raw)
             return data
         } catch as err {
+            ; Diagnostic detail (file/line/what) is included temporarily
+            ; while tracking down an unexpected "Missing a required
+            ; parameter." failure seen during pilot testing; safe to
+            ; keep long-term since it only helps future troubleshooting.
+            detail := "エラー内容: " err.Message
+            if HasProp(err, "File") && err.File != ""
+                detail .= "`n発生箇所: " err.File " " err.Line "行目"
+            if HasProp(err, "What") && err.What != ""
+                detail .= "`n(" err.What ")"
+
             cached := ConfigLoader._LoadCache(cachePath, validatorFn)
             if (cached != "") {
                 MsgBox(
                     "設定ファイルの読み込みに失敗しました:`n" path "`n`n"
-                    . "エラー内容: " err.Message "`n`n"
+                    . detail "`n`n"
                     . "直前まで正常に動いていた設定を代わりに使用します。`n"
                     . "設定ファイルの内容を確認・修正してください。",
                     "設定エラー", "Icon!"
@@ -46,7 +56,7 @@ class ConfigLoader {
             }
             MsgBox(
                 "設定ファイルの読み込みに失敗し、以前の正常な設定も見つかりませんでした:`n" path "`n`n"
-                . "エラー内容: " err.Message "`n`n"
+                . detail "`n`n"
                 . "ツールを終了します。設定ファイルの内容を確認してください。",
                 "設定エラー", "Icon!"
             )
