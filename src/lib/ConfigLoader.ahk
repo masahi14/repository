@@ -29,7 +29,7 @@ class ConfigLoader {
         try {
             raw := FileRead(path, "UTF-8")
             data := JSON.Parse(raw)
-            validatorFn.Call(data)
+            validatorFn(data)
             ConfigLoader._SaveCache(cachePath, raw)
             return data
         } catch as err {
@@ -87,7 +87,7 @@ class ConfigLoader {
         try {
             raw := FileRead(cachePath, "UTF-8")
             data := JSON.Parse(raw)
-            validatorFn.Call(data)
+            validatorFn(data)
             return data
         } catch {
             return ""
