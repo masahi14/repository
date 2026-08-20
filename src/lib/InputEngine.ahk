@@ -86,23 +86,35 @@ class InputEngine {
 
     ; Delivers one key/text to the karte window.
     ;
-    ; Pilot testing found that SendInput (which delivers to whichever
-    ; window currently has system keyboard focus) silently lost
-    ; keystrokes: Panel is a WS_EX_NOACTIVATE window, and Windows can
-    ; refuse a background process's WinActivate/SetForegroundWindow
+    ; Pilot testing found that plain SendInput (which delivers to
+    ; whichever window currently has system keyboard focus) silently
+    ; lost keystrokes: Panel is a WS_EX_NOACTIVATE window, and Windows
+    ; can refuse a background process's WinActivate/SetForegroundWindow
     ; call on an unrelated window, so the karte window sometimes never
-    ; actually regained focus even though no error was raised anywhere.
-    ; ControlSend instead delivers directly to the target window's
-    ; currently-focused control by window handle - it does not require
-    ; that window to be the foreground window at all, so it is not
-    ; subject to that restriction. Falls back to SendInput only if no
-    ; target window handle is available (e.g. Panel never observed a
-    ; non-panel foreground window yet).
+    ; actually regained system focus even though no error was raised
+    ; anywhere.
+    ;
+    ; ControlSend(keys, , "ahk_id " hwnd) with a blank Control - meaning
+    ; "send to whatever control currently has focus in that window" -
+    ; was tried next, but pilot testing showed it also silently
+    ; delivered nothing, even to a window that isn't the foreground
+    ; window. So this now resolves the actually-focused control inside
+    ; the target window explicitly via ControlGetFocus first, and sends
+    ; to that control by name. This does not require the target window
+    ; to be the system foreground window at all, which is the whole
+    ; point: it must keep working even when Windows refuses to give the
+    ; karte window focus back.
     static _Send(keys, targetHwnd) {
-        if (targetHwnd && WinExist("ahk_id " targetHwnd))
-            ControlSend(keys, , "ahk_id " targetHwnd)
-        else
-            SendInput(keys)
+        if (targetHwnd && WinExist("ahk_id " targetHwnd)) {
+            focusedControl := ""
+            try
+                focusedControl := ControlGetFocus("ahk_id " targetHwnd)
+            if (focusedControl != "") {
+                ControlSend(keys, focusedControl, "ahk_id " targetHwnd)
+                return
+            }
+        }
+        SendInput(keys)
     }
 
     ; Intentional no-op. A "then": "leave_blank_manual_entry" item (for
