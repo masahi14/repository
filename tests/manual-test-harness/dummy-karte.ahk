@@ -7,47 +7,24 @@
 ; panel (src\main.ahk) to send a set and confirm the codes that appear
 ; here match what tests/manual-test-harness/test-checklist.md expects.
 ;
-; This does not attempt to replicate the "5-digit code shows a
-; candidate, Enter confirms it" behavior of the real software - it
-; just records every keystroke sent to it, which is enough to verify
-; the panel's code order, count, and Random selection behavior, and to
-; confirm that "leave_blank_manual_entry" items really do stop sending
-; after their Enter with nothing further.
+; This is a plain, ordinary (not ReadOnly) multi-line Edit control, so
+; whatever the panel actually types (codes, Enter as a newline, menu
+; navigation keys) shows up exactly as typed - the same as it would in
+; a real text field. An earlier version used a ReadOnly Edit plus a
+; global Hotkey() to fake this, but pilot testing showed that
+; InputEngine's ControlSend (see src\lib\InputEngine.ahk) delivers
+; keys as window messages straight to this control, which a ReadOnly
+; Edit rejects and which never reaches a separate script's global
+; keyboard hook - so nothing appeared to happen even though the send
+; genuinely worked. A normal editable control has neither problem and
+; is also a more honest stand-in for the real software's input field.
 ;
-; The text box variable is named editBox (not "edit") because
-; AutoHotkey v2 has a built-in Edit() function, and a plain variable
-; named "edit" collides with it ("This Func cannot be used as an
-; output variable").
+; The variable is named editBox (not "edit") because AutoHotkey v2 has
+; a built-in Edit() function, and a plain variable named "edit"
+; collides with it ("This Func cannot be used as an output variable").
 
 win := Gui("+Resize", "ダミーカルテ(テスト用) — ここをクリックしてフォーカスしてからパネルのボタンを押してください")
 win.SetFont("s11")
-editBox := win.Add("Edit", "w520 h420 Multi ReadOnly -Wrap")
+editBox := win.Add("Edit", "w520 h420 Multi -Wrap")
 win.Show()
 editBox.Focus()
-
-; Real code+Enter keystrokes typed into a ReadOnly Edit wouldn't show
-; up, so intercept and append manually instead of relying on the OS to
-; deliver text into the control.
-Hotkey("~*Enter", LogEnter, "On")
-Hotkey("~*0", (*) => LogDigit("0"), "On")
-Hotkey("~*1", (*) => LogDigit("1"), "On")
-Hotkey("~*2", (*) => LogDigit("2"), "On")
-Hotkey("~*3", (*) => LogDigit("3"), "On")
-Hotkey("~*4", (*) => LogDigit("4"), "On")
-Hotkey("~*5", (*) => LogDigit("5"), "On")
-Hotkey("~*6", (*) => LogDigit("6"), "On")
-Hotkey("~*7", (*) => LogDigit("7"), "On")
-Hotkey("~*8", (*) => LogDigit("8"), "On")
-Hotkey("~*9", (*) => LogDigit("9"), "On")
-
-LogDigit(d) {
-    if !WinActive("ahk_id " win.Hwnd)
-        return
-    editBox.Value := editBox.Value . d
-}
-
-LogEnter(*) {
-    if !WinActive("ahk_id " win.Hwnd)
-        return
-    editBox.Value := editBox.Value . "  <-- Enter`n"
-}
