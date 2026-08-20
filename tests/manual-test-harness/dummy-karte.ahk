@@ -13,12 +13,17 @@
 ; the panel's code order, count, and Random selection behavior, and to
 ; confirm that "leave_blank_manual_entry" items really do stop sending
 ; after their Enter with nothing further.
+;
+; The text box variable is named editBox (not "edit") because
+; AutoHotkey v2 has a built-in Edit() function, and a plain variable
+; named "edit" collides with it ("This Func cannot be used as an
+; output variable").
 
 win := Gui("+Resize", "ダミーカルテ(テスト用) — ここをクリックしてフォーカスしてからパネルのボタンを押してください")
 win.SetFont("s11")
-edit := win.Add("Edit", "w520 h420 Multi ReadOnly -Wrap")
+editBox := win.Add("Edit", "w520 h420 Multi ReadOnly -Wrap")
 win.Show()
-edit.Focus()
+editBox.Focus()
 
 ; Real code+Enter keystrokes typed into a ReadOnly Edit wouldn't show
 ; up, so intercept and append manually instead of relying on the OS to
@@ -38,11 +43,11 @@ Hotkey("~*9", (*) => LogDigit("9"), "On")
 LogDigit(d) {
     if !WinActive("ahk_id " win.Hwnd)
         return
-    edit.Value := edit.Value . d
+    editBox.Value := editBox.Value . d
 }
 
 LogEnter(*) {
     if !WinActive("ahk_id " win.Hwnd)
         return
-    edit.Value := edit.Value . "  <-- Enter`n"
+    editBox.Value := editBox.Value . "  <-- Enter`n"
 }
