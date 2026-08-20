@@ -18,32 +18,34 @@ class ConfigLoader {
     static CacheDir => EnvGet("LOCALAPPDATA") "\DentalKartePanel"
 
     static LoadSets(path) {
-        return ConfigLoader._LoadWithFallback(path, ConfigLoader.CacheDir "\last_good_sets.json", ConfigLoader._ValidateSets)
+        return ConfigLoader._LoadWithFallback(path, ConfigLoader.CacheDir "\last_good_sets.json", "sets")
     }
 
     static LoadSettings(path) {
-        return ConfigLoader._LoadWithFallback(path, ConfigLoader.CacheDir "\last_good_settings.json", ConfigLoader._ValidateSettings)
+        return ConfigLoader._LoadWithFallback(path, ConfigLoader.CacheDir "\last_good_settings.json", "settings")
     }
 
-    static _LoadWithFallback(path, cachePath, validatorFn) {
+    ; "kind" is "sets" or "settings" rather than passing a validator
+    ; function reference around: passing ConfigLoader._ValidateSets as
+    ; a value and invoking it indirectly (both via .Call() and via
+    ; direct invocation) reliably threw "Missing a required parameter."
+    ; on the pilot machine, so validation is called directly by name
+    ; instead via _Validate() below.
+    static _LoadWithFallback(path, cachePath, kind) {
         try {
             raw := FileRead(path, "UTF-8")
             data := JSON.Parse(raw)
-            validatorFn(data)
+            ConfigLoader._Validate(kind, data)
             ConfigLoader._SaveCache(cachePath, raw)
             return data
         } catch as err {
-            ; Diagnostic detail (file/line/what) is included temporarily
-            ; while tracking down an unexpected "Missing a required
-            ; parameter." failure seen during pilot testing; safe to
-            ; keep long-term since it only helps future troubleshooting.
             detail := "エラー内容: " err.Message
             if HasProp(err, "File") && err.File != ""
                 detail .= "`n発生箇所: " err.File " " err.Line "行目"
             if HasProp(err, "What") && err.What != ""
                 detail .= "`n(" err.What ")"
 
-            cached := ConfigLoader._LoadCache(cachePath, validatorFn)
+            cached := ConfigLoader._LoadCache(cachePath, kind)
             if (cached != "") {
                 MsgBox(
                     "設定ファイルの読み込みに失敗しました:`n" path "`n`n"
@@ -64,6 +66,13 @@ class ConfigLoader {
         }
     }
 
+    static _Validate(kind, data) {
+        if (kind = "sets")
+            ConfigLoader._ValidateSets(data)
+        else
+            ConfigLoader._ValidateSettings(data)
+    }
+
     ; Best-effort: a failure here (e.g. the cache folder can't be
     ; created yet on first run) must never surface as a config load
     ; failure, since the config itself loaded and validated fine.
@@ -81,13 +90,13 @@ class ConfigLoader {
         }
     }
 
-    static _LoadCache(cachePath, validatorFn) {
+    static _LoadCache(cachePath, kind) {
         if !FileExist(cachePath)
             return ""
         try {
             raw := FileRead(cachePath, "UTF-8")
             data := JSON.Parse(raw)
-            validatorFn(data)
+            ConfigLoader._Validate(kind, data)
             return data
         } catch {
             return ""
