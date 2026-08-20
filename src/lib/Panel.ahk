@@ -9,10 +9,13 @@
 ; re-focus it.
 ;
 ; This is achieved with the WS_EX_NOACTIVATE extended window style
-; (+E0x08000000) plus Show("NoActivate"). As a fallback, in case that
-; style is not fully honored on some machine/Windows build, we also
-; track the most recent non-panel foreground window and explicitly
-; re-activate it right before sending keys.
+; (+E0x08000000) plus Show("NoActivate"), and by having InputEngine
+; deliver keystrokes via ControlSend targeted at the tracked karte
+; window handle rather than SendInput (see InputEngine._Send) - this
+; avoids depending on that karte window actually being reactivated,
+; which Windows can silently refuse for a background process. We still
+; call WinActivate as a best-effort so the karte window visibly comes
+; forward, but correctness no longer depends on it succeeding.
 
 class Panel {
     static panelGui := ""
@@ -99,9 +102,10 @@ class Panel {
 
         Panel._SetButtonsEnabled(false)
         try {
-            if (Panel.lastActiveHwnd && WinExist("ahk_id " Panel.lastActiveHwnd))
-                WinActivate("ahk_id " Panel.lastActiveHwnd)
-            InputEngine.RunSet(setDef, Panel.settings)
+            targetHwnd := Panel.lastActiveHwnd
+            if (targetHwnd && WinExist("ahk_id " targetHwnd))
+                WinActivate("ahk_id " targetHwnd)
+            InputEngine.RunSet(setDef, Panel.settings, targetHwnd)
         } catch as err {
             MsgBox("入力中にエラーが発生しました: " err.Message, "エラー", "Icon!")
         }
