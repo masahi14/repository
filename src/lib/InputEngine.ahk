@@ -104,17 +104,52 @@ class InputEngine {
     ; to be the system foreground window at all, which is the whole
     ; point: it must keep working even when Windows refuses to give the
     ; karte window focus back.
+    ;
+    ; Real-machine testing (2026-08) found a further wrinkle: some
+    ; codes (e.g. fluoride's 46095, hygiene_instruction's 40248) make
+    ; the karte software pop up an extra "処置選択" window on its own
+    ; mid-sequence, which genuinely takes real OS focus. targetHwnd is
+    ; captured once, back when the panel button was first clicked, so
+    ; it can no longer be the right destination once one of these
+    ; popups appears. An earlier attempt fixed this by always sending
+    ; to whichever window is currently active ("A") instead of
+    ; targetHwnd, but that misfired badly on real hardware: at least
+    ; once it caused a cascade of keystrokes landing on the karte
+    ; software's own global hotkeys (Shift+F1..F12 are all screen
+    ; switches in this software), rapidly flipping through unrelated
+    ; screens. So this keeps targetHwnd as the primary destination
+    ; (exactly the previously-verified behavior, unchanged for every
+    ; set that doesn't hit this popup case) and only tries the
+    ; currently-active window as a second attempt if that fails - never
+    ; as the first thing tried. Only if both attempts fail does this
+    ; fall back to plain SendInput, same as before.
     static _Send(keys, targetHwnd) {
-        if (targetHwnd && WinExist("ahk_id " targetHwnd)) {
-            focusedControl := ""
-            try
-                focusedControl := ControlGetFocus("ahk_id " targetHwnd)
-            if (focusedControl != "") {
-                ControlSend(keys, focusedControl, "ahk_id " targetHwnd)
-                return
-            }
-        }
+        if (InputEngine._TrySend(keys, targetHwnd))
+            return
+        activeHwnd := WinExist("A")
+        if (activeHwnd && activeHwnd != targetHwnd && InputEngine._TrySend(keys, activeHwnd))
+            return
         SendInput(keys)
+    }
+
+    ; Attempts to deliver keys to the focused control of one specific
+    ; window. Returns true only if a focused control was found and the
+    ; send itself did not throw (e.g. the window closing between the
+    ; existence check and the send). False means "try something else",
+    ; not "an error occurred" - callers decide what to fall back to.
+    static _TrySend(keys, hwnd) {
+        if (!hwnd || !WinExist("ahk_id " hwnd))
+            return false
+        focusedControl := ""
+        try
+            focusedControl := ControlGetFocus("ahk_id " hwnd)
+        if (focusedControl = "")
+            return false
+        try {
+            ControlSend(keys, focusedControl, "ahk_id " hwnd)
+            return true
+        }
+        return false
     }
 
     ; Intentional no-op. A "then": "leave_blank_manual_entry" item (for
