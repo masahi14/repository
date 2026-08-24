@@ -104,36 +104,14 @@ class InputEngine {
     ; to be the system foreground window at all, which is the whole
     ; point: it must keep working even when Windows refuses to give the
     ; karte window focus back.
-    ;
-    ; Real-machine testing (2026-08) found a further wrinkle: some
-    ; codes (e.g. fluoride's 46095, denture's 40177) make the karte
-    ; software pop up an extra top-level "処置選択" window on its own,
-    ; which genuinely takes real OS focus - unlike the panel, which
-    ; never does. targetHwnd is captured once, back when the panel
-    ; button was first clicked, so once one of these popups appears
-    ; mid-sequence it stops being the right destination. Re-resolving
-    ; the actually-active window ("A") on every single key keeps this
-    ; working whether the karte software is showing its main screen or
-    ; one of these auto-popups; targetHwnd is kept only as a fallback
-    ; for the rare case where nothing is active at all. ControlSend
-    ; itself is now wrapped in try too, so a window that disappears in
-    ; the instant between the existence check and the send (closing a
-    ; popup, for example) falls back to SendInput instead of aborting
-    ; the whole set with an unhandled error.
     static _Send(keys, targetHwnd) {
-        hwnd := WinExist("A")
-        if (!hwnd)
-            hwnd := targetHwnd
-
-        if (hwnd && WinExist("ahk_id " hwnd)) {
+        if (targetHwnd && WinExist("ahk_id " targetHwnd)) {
             focusedControl := ""
             try
-                focusedControl := ControlGetFocus("ahk_id " hwnd)
+                focusedControl := ControlGetFocus("ahk_id " targetHwnd)
             if (focusedControl != "") {
-                try {
-                    ControlSend(keys, focusedControl, "ahk_id " hwnd)
-                    return
-                }
+                ControlSend(keys, focusedControl, "ahk_id " targetHwnd)
+                return
             }
         }
         SendInput(keys)
