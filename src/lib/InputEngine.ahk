@@ -123,13 +123,39 @@ class InputEngine {
     ; currently-active window as a second attempt if that fails - never
     ; as the first thing tried. Only if both attempts fail does this
     ; fall back to plain SendInput, same as before.
+    ;
+    ; A second real-machine finding (2026-08): "+{F4}" (Shift+F4) was
+    ; sometimes not being recognized as a held-Shift combo at all - the
+    ; karte software instead behaved as if plain F4 alone had been
+    ; pressed (e.g. opening a print dialog instead of the intended
+    ; custom-comment screen). ControlSend posts synthetic key messages
+    ; straight to one control; it does not update the real, system-wide
+    ; keyboard state that GetKeyState()/GetAsyncKeyState() report, so
+    ; an application that checks "is Shift actually held right now"
+    ; rather than trusting the message it just received can miss the
+    ; combo entirely. The fix is to hold Shift down for real (via plain
+    ; Send/SendInput, which does touch the real system key state)
+    ; around whichever single key ControlSend then delivers to the
+    ; target control - so the modifier is genuinely held at the OS
+    ; level while the base key still reaches the correct window via the
+    ; same targeted delivery as every other key.
     static _Send(keys, targetHwnd) {
-        if (InputEngine._TrySend(keys, targetHwnd))
-            return
-        activeHwnd := WinExist("A")
-        if (activeHwnd && activeHwnd != targetHwnd && InputEngine._TrySend(keys, activeHwnd))
-            return
-        SendInput(keys)
+        isShifted := SubStr(keys, 1, 1) = "+"
+        baseKeys := isShifted ? SubStr(keys, 2) : keys
+
+        if (isShifted)
+            SendInput("{Shift down}")
+        try {
+            if (InputEngine._TrySend(baseKeys, targetHwnd))
+                return
+            activeHwnd := WinExist("A")
+            if (activeHwnd && activeHwnd != targetHwnd && InputEngine._TrySend(baseKeys, activeHwnd))
+                return
+            SendInput(baseKeys)
+        } finally {
+            if (isShifted)
+                SendInput("{Shift up}")
+        }
     }
 
     ; Attempts to deliver keys to the focused control of one specific
