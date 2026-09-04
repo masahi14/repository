@@ -29,6 +29,42 @@
     return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m;
   }
 
+  /**
+   * blocks を担当者(staffType+staffName)ごとにグルーピングし、開始時刻順に並べる。
+   * 監査(auditSchedule)と画面表示(厳重チェック欄)の両方から使う共通処理。
+   * @returns {Object} key "dr|山田Dr" 等 -> 開始時刻順の blocks 配列
+   */
+  function groupByStaffSorted(blocks) {
+    var byStaff = {};
+    blocks.forEach(function (b) {
+      var key = b.staffType + "|" + b.staffName;
+      byStaff[key] = byStaff[key] || [];
+      byStaff[key].push(b);
+    });
+    Object.keys(byStaff).forEach(function (key) {
+      byStaff[key].sort(function (a, b) {
+        return a.start - b.start;
+      });
+    });
+    return byStaff;
+  }
+
+  /**
+   * 並べ替え済みの1担当者分のblocksから、前患者終了→次患者開始の差分を計算する。
+   * @returns {Array} [{from: block, to: block, gap: number}]
+   */
+  function computeGaps(sortedBlocks) {
+    var gaps = [];
+    for (var i = 1; i < sortedBlocks.length; i++) {
+      gaps.push({
+        from: sortedBlocks[i - 1],
+        to: sortedBlocks[i],
+        gap: sortedBlocks[i].start - sortedBlocks[i - 1].end
+      });
+    }
+    return gaps;
+  }
+
   var DEFAULT_CONFIG = {
     drDuration: 22, // Dr 通常時間(分) 21-23が目安
     drGap: 2, // Dr 患者間(分) 通常2-3、最大4まで許容
@@ -207,27 +243,19 @@
     });
 
     // 監査B/C: 担当者(Dr/DH)ごとにブロックを再ソートし、重複・間隔を再計算
-    var byStaff = {};
-    blocks.forEach(function (b) {
-      var key = b.staffType + "|" + b.staffName;
-      byStaff[key] = byStaff[key] || [];
-      byStaff[key].push(b);
-    });
+    var byStaff = groupByStaffSorted(blocks);
     Object.keys(byStaff).forEach(function (key) {
       var parts = key.split("|");
       var staffType = parts[0];
       var staffName = parts[1];
       var auditCode = staffType === "dr" ? "AUDIT_B" : "AUDIT_C";
-      var list = byStaff[key].slice().sort(function (a, b) {
-        return a.start - b.start;
-      });
+      var list = byStaff[key];
       var minDur = staffType === "dr" ? 21 : 20;
       var maxDur = staffType === "dr" ? 23 : 22;
       var minGap = 2;
       var maxGap = 4;
 
-      for (var i = 0; i < list.length; i++) {
-        var b = list[i];
+      list.forEach(function (b) {
         var dur = b.end - b.start;
         if (dur < minDur || dur > maxDur) {
           add(
@@ -236,30 +264,29 @@
             auditCode + ": " + staffName + " / 患者「" + b.patientName + "」の処置時間が" + dur + "分です（通常" + minDur + "〜" + maxDur + "分の範囲外・短時間処置指定でなければ要確認）"
           );
         }
-        if (i > 0) {
-          var prev = list[i - 1];
-          var gap = b.start - prev.end;
-          if (gap < 0) {
-            add(
-              "error",
-              auditCode + "_OVERLAP",
-              auditCode + ": " + staffName + " の時間重複を検出（患者「" + prev.patientName + "」" + toHHMM(prev.end) + "終了 / 患者「" + b.patientName + "」" + toHHMM(b.start) + "開始）"
-            );
-          } else if (gap < minGap) {
-            add(
-              "warn",
-              auditCode + "_GAP_SHORT",
-              auditCode + ": " + staffName + " の患者間隔が" + gap + "分です（患者「" + prev.patientName + "」→「" + b.patientName + "」、通常" + minGap + "分以上）"
-            );
-          } else if (gap > maxGap) {
-            add(
-              "warn",
-              auditCode + "_GAP_LONG",
-              auditCode + ": " + staffName + " の患者間隔が" + gap + "分空いています（患者「" + prev.patientName + "」→「" + b.patientName + "」、目安" + maxGap + "分以内）"
-            );
-          }
+      });
+
+      computeGaps(list).forEach(function (g) {
+        if (g.gap < 0) {
+          add(
+            "error",
+            auditCode + "_OVERLAP",
+            auditCode + ": " + staffName + " の時間重複を検出（患者「" + g.from.patientName + "」" + toHHMM(g.from.end) + "終了 / 患者「" + g.to.patientName + "」" + toHHMM(g.to.start) + "開始）"
+          );
+        } else if (g.gap < minGap) {
+          add(
+            "warn",
+            auditCode + "_GAP_SHORT",
+            auditCode + ": " + staffName + " の患者間隔が" + g.gap + "分です（患者「" + g.from.patientName + "」→「" + g.to.patientName + "」、通常" + minGap + "分以上）"
+          );
+        } else if (g.gap > maxGap) {
+          add(
+            "warn",
+            auditCode + "_GAP_LONG",
+            auditCode + ": " + staffName + " の患者間隔が" + g.gap + "分空いています（患者「" + g.from.patientName + "」→「" + g.to.patientName + "」、目安" + maxGap + "分以内）"
+          );
         }
-      }
+      });
 
       if (facilityEndMin !== null && list.length > 0) {
         var last = list[list.length - 1];
@@ -308,6 +335,8 @@
     DEFAULT_CONFIG: DEFAULT_CONFIG,
     toMinutes: toMinutes,
     toHHMM: toHHMM,
+    groupByStaffSorted: groupByStaffSorted,
+    computeGaps: computeGaps,
     generateSchedule: generateSchedule,
     auditSchedule: auditSchedule
   };

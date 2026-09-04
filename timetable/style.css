@@ -166,6 +166,181 @@ button.danger {
   margin: 0 0 4px;
 }
 
+.note {
+  font-size: 12px;
+  color: #9a6700;
+  background: var(--bg-warn);
+  padding: 6px 8px;
+  border-radius: 4px;
+  margin: 0 0 6px;
+}
+
+textarea {
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+/* --- 印刷用シートレイアウト（A4横1枚を意識） --- */
+.print-sheet {
+  border: 1px solid #333;
+  padding: 10px;
+}
+
+.sheet-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #1e2f4d;
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 4px 4px 0 0;
+}
+
+.sheet-title {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.sheet-timerange {
+  background: #2b5fd9;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.sheet-subheader {
+  border: 1px solid #333;
+  border-top: none;
+  padding: 6px 12px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.sheet-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  grid-template-areas:
+    "patients visit"
+    "strict facility";
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.panel {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px;
+}
+
+.panel h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: #1e2f4d;
+}
+
+.panel-patients {
+  grid-area: patients;
+  padding: 0;
+  overflow: hidden;
+}
+
+.panel-patients table {
+  margin-bottom: 0;
+}
+
+.panel-patients th {
+  background: #1e2f4d;
+  color: #fff;
+}
+
+.panel-footnote {
+  background: #eef1f6;
+  text-align: center;
+  padding: 4px;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.panel-visit-input {
+  grid-area: visit;
+}
+
+.panel-visit-input h3 {
+  background: #2b5fd9;
+  color: #fff;
+  padding: 4px 8px;
+  margin: -8px -8px 6px;
+  border-radius: 4px 4px 0 0;
+}
+
+.panel-strict-check {
+  grid-area: strict;
+}
+
+.panel-facility-rule {
+  grid-area: facility;
+}
+
+.panel-facility-rule h3 {
+  background: #1e2f4d;
+  color: #fff;
+  padding: 4px 8px;
+  margin: -8px -8px 6px;
+  border-radius: 4px 4px 0 0;
+}
+
+.strict-check-cols {
+  display: flex;
+  gap: 12px;
+}
+
+.strict-check-cols > div {
+  flex: 1;
+}
+
+.strict-check-cols .staff-name {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.gap-line {
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+
+.memo-view {
+  font-size: 12px;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.sheet-final {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 13px;
+}
+
+.sheet-final.ok {
+  background: var(--bg-ok);
+  color: var(--ok);
+}
+
+.sheet-final.warn {
+  background: var(--bg-warn);
+  color: var(--warn);
+}
+
+.sheet-final.error {
+  background: var(--bg-error);
+  color: var(--error);
+}
+
 @media print {
   body {
     margin: 0;

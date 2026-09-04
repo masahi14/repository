@@ -7,18 +7,18 @@
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-<h1>訪問歯科タイムテーブル作成（1施設・午前/午後）</h1>
+<h1 class="no-print">訪問歯科タイムテーブル作成（1施設・午前/午後）</h1>
 
 <section class="no-print">
   <h2>基本情報</h2>
   <div class="row">
     <div class="field">
       <label>施設名</label>
-      <input type="text" id="facilityName" placeholder="例）〇〇苑" />
+      <input type="text" id="facilityName" placeholder="例）ハートワン潮来" />
     </div>
     <div class="field">
-      <label>日付</label>
-      <input type="text" id="visitDate" placeholder="例）2026-09-04" />
+      <label>日付（YYYY-MM-DD）</label>
+      <input type="text" id="visitDate" placeholder="例）2026-09-01" />
     </div>
     <div class="field">
       <label>午前/午後</label>
@@ -39,11 +39,25 @@
   <div class="row">
     <div class="field">
       <label>Dr（カンマ区切りで複数可）</label>
-      <input type="text" id="drNames" placeholder="例）山田Dr" />
+      <input type="text" id="drNames" placeholder="例）美恵子先生" />
     </div>
     <div class="field">
       <label>DH（カンマ区切りで複数可）</label>
-      <input type="text" id="dhNames" placeholder="例）鈴木DH" />
+      <input type="text" id="dhNames" placeholder="例）諸谷さん" />
+    </div>
+    <div class="field">
+      <label>補助DH（任意・表示のみ）</label>
+      <input type="text" id="assistantNote" placeholder="例）なし" />
+    </div>
+  </div>
+  <div class="row">
+    <div class="field">
+      <label>新患数（任意・表示のみ）</label>
+      <input type="number" id="newPatientCount" min="0" />
+    </div>
+    <div class="field">
+      <label>保険・介護メモ（任意・表示のみ）</label>
+      <input type="text" id="insuranceNote" placeholder="例）全員介護／介護保険併用" style="width:260px;" />
     </div>
   </div>
   <div class="row">
@@ -72,7 +86,8 @@
     <thead>
       <tr>
         <th>患者名</th>
-        <th>区分</th>
+        <th>備考（区分・任意）</th>
+        <th>担当区分</th>
         <th>順序(両方の場合)</th>
         <th>担当Dr</th>
         <th>担当DH</th>
@@ -87,20 +102,55 @@
 </section>
 
 <section class="no-print">
+  <h2>訪問入力（算定項目・人数区分）※自動判定は未実装。手入力欄です</h2>
+  <p class="note">根拠資料（歯科点数表の解釈 令和8年6月版）はまだ「院内未確認」のため、算定項目の自動判定は行いません。院内確認後、確認済みルールとして登録してから自動化します。</p>
+  <textarea id="visitInputMemo" rows="4" style="width:100%;" placeholder="例）歯科訪問診療料 5名→訪問診療料 3・310点／(歯)居宅療養II 5名→2〜9人区分／(衛)居宅療養II 5名→2〜9人区分(DH訪問あり)"></textarea>
+</section>
+
+<section class="no-print">
+  <h2>施設別入力ルール（参考・手入力）</h2>
+  <textarea id="facilityRuleMemo" rows="3" style="width:100%;" placeholder="例）介護保険併用の場合：歯科訪問診療料は当日診療した人数で区分を選択／(歯)居宅療養：介護保険併用→入力あり"></textarea>
+</section>
+
+<section class="no-print">
   <button id="generateBtn" class="primary">タイムテーブルを作成</button>
   <button id="printBtn">印刷 / PDF</button>
 </section>
 
-<section id="resultSection" class="hidden">
-  <h2>タイムテーブル結果 <span id="overallBadge" class="overall-badge"></span></h2>
-  <div id="headerSummary"></div>
-  <div id="staffTimetables"></div>
+<section id="resultSection" class="hidden print-sheet">
+  <div class="sheet-header">
+    <div class="sheet-title" id="sheetTitle"></div>
+    <div class="sheet-timerange" id="sheetTimerange"></div>
+  </div>
+  <div class="sheet-subheader" id="sheetSubheader"></div>
 
-  <h2>作成時チェック</h2>
-  <div id="creationFindings"></div>
+  <div class="sheet-grid">
+    <div class="panel panel-patients">
+      <table id="patientTimetable"></table>
+      <div class="panel-footnote" id="scheduleEndNote"></div>
+    </div>
+    <div class="panel panel-visit-input">
+      <h3>訪問入力</h3>
+      <div id="visitInputView"></div>
+    </div>
+    <div class="panel panel-strict-check">
+      <h3>厳重チェック（だいたい2〜3分を目安）</h3>
+      <div id="strictCheckView"></div>
+    </div>
+    <div class="panel panel-facility-rule">
+      <h3 id="facilityRuleTitle">施設の入力ルール</h3>
+      <div id="facilityRuleView"></div>
+    </div>
+  </div>
 
-  <h2>独立監査結果（監査A〜D／作成ロジックとは別に再計算）</h2>
-  <div id="auditFindings"></div>
+  <div class="sheet-final" id="sheetFinal"></div>
+
+  <div class="no-print">
+    <h2>作成時チェック</h2>
+    <div id="creationFindings"></div>
+    <h2>独立監査 詳細（監査A〜D／作成ロジックとは別に再計算）</h2>
+    <div id="auditFindings"></div>
+  </div>
 </section>
 
 <script src="logic.js"></script>
