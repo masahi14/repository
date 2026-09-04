@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>訪問歯科タイムテーブル作成</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<h1>訪問歯科タイムテーブル作成（1施設・午前/午後）</h1>
+
+<section class="no-print">
+  <h2>基本情報</h2>
+  <div class="row">
+    <div class="field">
+      <label>施設名</label>
+      <input type="text" id="facilityName" placeholder="例）〇〇苑" />
+    </div>
+    <div class="field">
+      <label>日付</label>
+      <input type="text" id="visitDate" placeholder="例）2026-09-04" />
+    </div>
+    <div class="field">
+      <label>午前/午後</label>
+      <select id="session">
+        <option value="午前">午前</option>
+        <option value="午後">午後</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>開始時刻</label>
+      <input type="time" id="facilityStart" value="09:00" />
+    </div>
+    <div class="field">
+      <label>予定終了時刻（任意）</label>
+      <input type="time" id="facilityEnd" />
+    </div>
+  </div>
+  <div class="row">
+    <div class="field">
+      <label>Dr（カンマ区切りで複数可）</label>
+      <input type="text" id="drNames" placeholder="例）山田Dr" />
+    </div>
+    <div class="field">
+      <label>DH（カンマ区切りで複数可）</label>
+      <input type="text" id="dhNames" placeholder="例）鈴木DH" />
+    </div>
+  </div>
+  <div class="row">
+    <div class="field">
+      <label>Dr処置時間(分・目安21-23)</label>
+      <input type="number" id="drDuration" value="22" min="1" />
+    </div>
+    <div class="field">
+      <label>Dr患者間隔(分・目安2-3、最大4)</label>
+      <input type="number" id="drGap" value="2" min="0" />
+    </div>
+    <div class="field">
+      <label>DH処置時間(分・最低20)</label>
+      <input type="number" id="dhDuration" value="21" min="1" />
+    </div>
+    <div class="field">
+      <label>DH患者間隔(分・目安2-3、最大4)</label>
+      <input type="number" id="dhGap" value="2" min="0" />
+    </div>
+  </div>
+</section>
+
+<section class="no-print">
+  <h2>患者リスト</h2>
+  <table id="patientTable">
+    <thead>
+      <tr>
+        <th>患者名</th>
+        <th>区分</th>
+        <th>順序(両方の場合)</th>
+        <th>担当Dr</th>
+        <th>担当DH</th>
+        <th>Dr時間上書(分)</th>
+        <th>DH時間上書(分)</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="patientBody"></tbody>
+  </table>
+  <button id="addPatientBtn">＋ 患者を追加</button>
+</section>
+
+<section class="no-print">
+  <button id="generateBtn" class="primary">タイムテーブルを作成</button>
+  <button id="printBtn">印刷 / PDF</button>
+</section>
+
+<section id="resultSection" class="hidden">
+  <h2>タイムテーブル結果 <span id="overallBadge" class="overall-badge"></span></h2>
+  <div id="headerSummary"></div>
+  <div id="staffTimetables"></div>
+
+  <h2>作成時チェック</h2>
+  <div id="creationFindings"></div>
+
+  <h2>独立監査結果（監査A〜D／作成ロジックとは別に再計算）</h2>
+  <div id="auditFindings"></div>
+</section>
+
+<script src="logic.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,185 @@
+:root {
+  --border: #ccc;
+  --ok: #1a7f37;
+  --warn: #9a6700;
+  --error: #b3261e;
+  --bg-warn: #fff8e5;
+  --bg-error: #fdecea;
+  --bg-ok: #eaf7ec;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+  margin: 16px;
+  color: #222;
+  font-size: 14px;
+}
+
+h1 {
+  font-size: 18px;
+  margin: 0 0 12px;
+}
+
+h2 {
+  font-size: 15px;
+  margin: 0 0 8px;
+  border-left: 4px solid #444;
+  padding-left: 6px;
+}
+
+section {
+  margin-bottom: 20px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 8px;
+  align-items: flex-end;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.field label {
+  font-size: 12px;
+  color: #555;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="time"],
+select {
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+th,
+td {
+  border: 1px solid var(--border);
+  padding: 4px 6px;
+  font-size: 13px;
+  text-align: left;
+}
+
+th {
+  background: #f2f2f2;
+}
+
+button {
+  padding: 6px 12px;
+  border: 1px solid #444;
+  background: #f7f7f7;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+button:hover {
+  background: #eee;
+}
+
+button.primary {
+  background: #2b5fd9;
+  color: #fff;
+  border-color: #2b5fd9;
+}
+
+button.danger {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+.patient-row td {
+  vertical-align: top;
+}
+
+.finding {
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+.finding.error {
+  background: var(--bg-error);
+  color: var(--error);
+}
+
+.finding.warn {
+  background: var(--bg-warn);
+  color: var(--warn);
+}
+
+.overall-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: bold;
+  font-size: 13px;
+}
+
+.overall-badge.ok {
+  background: var(--bg-ok);
+  color: var(--ok);
+}
+
+.overall-badge.warn {
+  background: var(--bg-warn);
+  color: var(--warn);
+}
+
+.overall-badge.error {
+  background: var(--bg-error);
+  color: var(--error);
+}
+
+.hidden {
+  display: none;
+}
+
+.staff-timetable {
+  margin-bottom: 12px;
+}
+
+.staff-timetable h3 {
+  font-size: 14px;
+  margin: 0 0 4px;
+}
+
+@media print {
+  body {
+    margin: 0;
+  }
+  section.no-print,
+  .no-print {
+    display: none !important;
+  }
+  section {
+    border: none;
+    padding: 0;
+  }
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+}
