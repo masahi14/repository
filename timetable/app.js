@@ -36,6 +36,7 @@
     tr.className = "patient-row";
     tr.dataset.id = id;
     tr.innerHTML =
+      '<td><input type="text" class="p-patient-id" placeholder="ID(任意)" /></td>' +
       '<td><input type="text" class="p-name" placeholder="患者名" /></td>' +
       '<td><input type="text" class="p-note" placeholder="例）新患・介護併用" /></td>' +
       '<td><select class="p-role"><option value="dr">Drのみ</option><option value="dh">DHのみ</option><option value="both">両方</option></select></td>' +
@@ -79,9 +80,15 @@
       var role = tr.querySelector(".p-role").value;
       var drOverride = tr.querySelector(".p-dr-override").value;
       var dhOverride = tr.querySelector(".p-dh-override").value;
+      var patientId = tr.querySelector(".p-patient-id").value.trim();
+      var name = tr.querySelector(".p-name").value.trim();
+      // 二重登録チェックの識別キー：患者IDがあればID、無ければ氏名で同一人物を判定する
+      // （行ごとに自動採番されるtr.dataset.idは常に一意なため、識別キーには使えない）
+      var identity = patientId || name || tr.dataset.id;
       patients.push({
-        id: tr.dataset.id,
-        name: tr.querySelector(".p-name").value.trim(),
+        id: identity,
+        patientId: patientId,
+        name: name,
         note: tr.querySelector(".p-note").value.trim(),
         role: role,
         order: tr.querySelector(".p-order").value,
@@ -135,14 +142,16 @@
       dhNames.map(function (n) { return { type: "dh", name: n }; })
     );
 
-    var html = "<thead><tr><th>患者</th><th>区分</th>";
+    var html = "<thead><tr><th>患者</th><th>ID</th><th>氏名</th><th>区分</th>";
     columns.forEach(function (c) {
       html += "<th>" + (c.type === "dr" ? "Dr " : "DH ") + escapeHtml(c.name) + "</th>";
     });
     html += "</tr></thead><tbody>";
 
     patients.forEach(function (p, idx) {
-      html += "<tr><td>" + (idx + 1) + "</td><td>" + escapeHtml(p.note || "") + "</td>";
+      html +=
+        "<tr><td>" + (idx + 1) + "</td><td>" + escapeHtml(p.patientId || "-") + "</td><td>" +
+        escapeHtml(p.name) + "</td><td>" + escapeHtml(p.note || "") + "</td>";
       columns.forEach(function (c) {
         var b = byPatientStaff[p.id + "|" + c.type + "|" + c.name];
         html += "<td>" + (b ? T.toHHMM(b.start) + "〜" + T.toHHMM(b.end) + "（" + (b.end - b.start) + "分）" : "") + "</td>";
