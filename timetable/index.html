@@ -105,7 +105,25 @@
 <section class="no-print">
   <h2>訪問入力（算定項目・人数区分）※自動判定は未実装。手入力欄です</h2>
   <p class="note">根拠資料（歯科点数表の解釈 令和8年6月版）はまだ「院内未確認」のため、算定項目の自動判定は行いません。院内確認後、確認済みルールとして登録してから自動化します。</p>
-  <textarea id="visitInputMemo" rows="4" style="width:100%;" placeholder="例）歯科訪問診療料 5名→訪問診療料 3・310点／(歯)居宅療養II 5名→2〜9人区分／(衛)居宅療養II 5名→2〜9人区分(DH訪問あり)"></textarea>
+  <table id="visitItemTable">
+    <thead>
+      <tr>
+        <th>種別</th>
+        <th>項目名</th>
+        <th>人数の見方・補足</th>
+        <th>今回（人数区分／点数など）</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="visitItemBody"></tbody>
+  </table>
+  <button id="addVisitItemBtn">＋ 項目を追加</button>
+  <div class="row" style="margin-top:8px;">
+    <div class="field" style="flex:1;">
+      <label>注意事項（任意・複数行可）</label>
+      <textarea id="visitInputNote" rows="2" style="width:100%;" placeholder="例）全員介護あり／今回はDr・DHともに訪問／補助なしのため入力漏れに注意"></textarea>
+    </div>
+  </div>
 </section>
 
 <section class="no-print">

@@ -4,9 +4,17 @@
 
   var T = window.DentalTimetable;
   var patientBody = document.getElementById("patientBody");
+  var visitItemBody = document.getElementById("visitItemBody");
   var rowSeq = 0;
+  var visitItemSeq = 0;
 
   var WEEKDAY_JA = ["日", "月", "火", "水", "木", "金", "土"];
+  var CIRCLED_DIGITS = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩", "⑪", "⑫", "⑬", "⑭", "⑮", "⑯", "⑰", "⑱", "⑲", "⑳"];
+  var ICON_BY_TYPE = { main: "🔴", sub: "🟡", note: "⚠️" };
+
+  function circledNumber(n) {
+    return CIRCLED_DIGITS[n - 1] || String(n);
+  }
 
   function drNamesList() {
     return document.getElementById("drNames").value.split(",").map(function (s) { return s.trim(); }).filter(Boolean);
@@ -50,6 +58,42 @@
     tr.querySelector(".remove-row").addEventListener("click", function () {
       tr.remove();
     });
+  }
+
+  function addVisitItemRow() {
+    visitItemSeq++;
+    var tr = document.createElement("tr");
+    tr.className = "visit-item-row";
+    tr.dataset.id = "visit-item-" + visitItemSeq;
+    tr.innerHTML =
+      '<td><select class="vi-type"><option value="main">●主項目(赤)</option><option value="sub">●管理料等(黄)</option><option value="note">⚠️注意事項</option></select></td>' +
+      '<td><input type="text" class="vi-name" placeholder="例）歯科訪問診療料(3)" /></td>' +
+      '<td><input type="text" class="vi-caption" placeholder="例）人数の見方：当日診療した人数" /></td>' +
+      '<td><input type="text" class="vi-value" placeholder="例）5名→310点" /></td>' +
+      '<td><button type="button" class="danger remove-row">削除</button></td>';
+    visitItemBody.appendChild(tr);
+    tr.querySelector(".remove-row").addEventListener("click", function () {
+      tr.remove();
+    });
+  }
+
+  document.getElementById("addVisitItemBtn").addEventListener("click", addVisitItemRow);
+  addVisitItemRow();
+
+  function collectVisitItems() {
+    var rows = visitItemBody.querySelectorAll(".visit-item-row");
+    var items = [];
+    rows.forEach(function (tr) {
+      var name = tr.querySelector(".vi-name").value.trim();
+      if (!name) return;
+      items.push({
+        type: tr.querySelector(".vi-type").value,
+        name: name,
+        caption: tr.querySelector(".vi-caption").value.trim(),
+        value: tr.querySelector(".vi-value").value.trim()
+      });
+    });
+    return items;
   }
 
   function refreshStaffSelects() {
@@ -142,7 +186,7 @@
 
     patients.forEach(function (p, idx) {
       html +=
-        "<tr><td>" + (idx + 1) + "</td><td>" + escapeHtml(p.patientId || "-") + "</td><td>" +
+        "<tr><td>" + circledNumber(idx + 1) + "</td><td>" + escapeHtml(p.patientId || "-") + "</td><td>" +
         escapeHtml(p.name) + "</td><td>" + escapeHtml(p.note || "") + "</td>";
       columns.forEach(function (c) {
         var b = byPatientStaff[p.id + "|" + c.type + "|" + c.name];
@@ -152,6 +196,34 @@
     });
     html += "</tbody>";
     document.getElementById("patientTimetable").innerHTML = html;
+  }
+
+  function renderVisitInput() {
+    var items = collectVisitItems();
+    var noteText = document.getElementById("visitInputNote").value.trim();
+    var html = "";
+    if (items.length === 0 && !noteText) {
+      html = '<div class="memo-view">（未入力）</div>';
+    } else {
+      items.forEach(function (item) {
+        html +=
+          '<div class="visit-item">' +
+          '<div class="visit-item-header">' +
+          '<span>' + ICON_BY_TYPE[item.type] + " " + escapeHtml(item.name) + "</span>" +
+          '<span class="visit-item-value">' + escapeHtml(item.value || "要確認") + "</span>" +
+          "</div>" +
+          (item.caption ? '<div class="visit-item-caption">' + escapeHtml(item.caption) + "</div>" : "") +
+          "</div>";
+      });
+      if (noteText) {
+        noteText.split("\n").forEach(function (line) {
+          if (line.trim()) {
+            html += '<div class="visit-item-note">⚠️ ' + escapeHtml(line.trim()) + "</div>";
+          }
+        });
+      }
+    }
+    document.getElementById("visitInputView").innerHTML = html;
   }
 
   document.getElementById("generateBtn").addEventListener("click", function () {
@@ -207,8 +279,7 @@
     document.getElementById("scheduleEndNote").textContent =
       "診療終了予定　" + (maxEnd !== null ? T.toHHMM(maxEnd) : "-");
 
-    document.getElementById("visitInputView").innerHTML =
-      '<div class="memo-view">' + (escapeHtml(document.getElementById("visitInputMemo").value) || "（未入力）") + "</div>";
+    renderVisitInput();
 
     document.getElementById("facilityRuleTitle").textContent = "施設：" + facilityName + " の入力ルール";
     document.getElementById("facilityRuleView").innerHTML =
