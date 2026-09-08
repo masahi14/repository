@@ -27,7 +27,7 @@ $failures = @()
 $suspiciousPattern = '(?i)(blood.?pressure|mmhg|spo2|pulse.?rate|vital.?sign|血圧|脈拍|酸素飽和|測定値)'
 $ahkFiles = Get-ChildItem -Path (Join-Path $RepoRoot "src") -Filter *.ahk -Recurse
 foreach ($file in $ahkFiles) {
-    $lines = Get-Content $file.FullName
+    $lines = Get-Content $file.FullName -Encoding UTF8
     for ($i = 0; $i -lt $lines.Count; $i++) {
         $trimmed = $lines[$i].Trim()
         if ($trimmed.StartsWith(";")) {
@@ -43,7 +43,7 @@ foreach ($file in $ahkFiles) {
 #    must only ever be used to pick among codes, not to synthesize a
 #    numeric reading.
 $randomUsers = $ahkFiles | Where-Object {
-    (Get-Content $_.FullName -Raw) -match 'Random\s*\('
+    (Get-Content $_.FullName -Raw -Encoding UTF8) -match 'Random\s*\('
 }
 $disallowedRandomUsers = $randomUsers | Where-Object { $_.Name -ne "SelectionEngine.ahk" }
 foreach ($f in $disallowedRandomUsers) {
@@ -54,7 +54,7 @@ foreach ($f in $disallowedRandomUsers) {
 #    SendInput/SendText/Send call inside its body.
 $inputEnginePath = Join-Path $RepoRoot "src\lib\InputEngine.ahk"
 if (Test-Path $inputEnginePath) {
-    $content = Get-Content $inputEnginePath -Raw
+    $content = Get-Content $inputEnginePath -Raw -Encoding UTF8
     if ($content -match '_HandleLeaveBlankManualEntry\(\)\s*\{([\s\S]*?)\}') {
         $body = $Matches[1]
         if ($body -match '(?i)SendInput|SendText|\bSend\(') {
@@ -75,7 +75,7 @@ if (Test-Path $inputEnginePath) {
 $allowedItemKeys = @("code", "note", "then", "menu_path")
 $setsPath = Join-Path $RepoRoot "config\sets.json"
 if (Test-Path $setsPath) {
-    $sets = Get-Content $setsPath -Raw | ConvertFrom-Json
+    $sets = Get-Content $setsPath -Raw -Encoding UTF8 | ConvertFrom-Json
     foreach ($setDef in $sets.sets) {
         if ($setDef.pattern -eq "fixed_sequence" -and $setDef.items) {
             foreach ($item in $setDef.items) {
