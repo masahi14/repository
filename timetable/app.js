@@ -124,14 +124,6 @@
     return parseInt(m[2], 10) + "月" + parseInt(m[3], 10) + "日（" + weekday + "）";
   }
 
-  function buildPatientNumberMap(patients) {
-    var map = {};
-    patients.forEach(function (p, idx) {
-      map[p.id] = idx + 1;
-    });
-    return map;
-  }
-
   function renderPatientTimetable(patients, blocks, drNames, dhNames) {
     var byPatientStaff = {};
     blocks.forEach(function (b) {
@@ -162,41 +154,6 @@
     document.getElementById("patientTimetable").innerHTML = html;
   }
 
-  function renderStrictCheck(blocks, patientNumberMap) {
-    var byStaff = T.groupByStaffSorted(blocks);
-    var container = document.getElementById("strictCheckView");
-    var html = '<div class="strict-check-cols">';
-    var keys = Object.keys(byStaff).sort(function (a, b) {
-      var aType = a.split("|")[0];
-      var bType = b.split("|")[0];
-      if (aType !== bType) return aType === "dr" ? -1 : 1;
-      return a < b ? -1 : a > b ? 1 : 0;
-    });
-    keys.forEach(function (key) {
-      var parts = key.split("|");
-      var label = (parts[0] === "dr" ? "Dr" : "DH") + "（" + parts[1] + "）";
-      var list = byStaff[key];
-      html += "<div><div class=\"staff-name\">" + escapeHtml(label) + "</div>";
-      var gaps = T.computeGaps(list);
-      if (gaps.length === 0) {
-        html += '<div class="gap-line">（患者1名のみ）</div>';
-      }
-      gaps.forEach(function (g) {
-        var fromNo = patientNumberMap[g.from.patientId];
-        var toNo = patientNumberMap[g.to.patientId];
-        html +=
-          '<div class="gap-line">●' +
-          "" + fromNo + "終了" + T.toHHMM(g.from.end) +
-          " → " +
-          "" + toNo + "開始" + T.toHHMM(g.to.start) +
-          "：" + g.gap + "分</div>";
-      });
-      html += "</div>";
-    });
-    html += "</div>";
-    container.innerHTML = html;
-  }
-
   document.getElementById("generateBtn").addEventListener("click", function () {
     var config = {
       drDuration: parseInt(document.getElementById("drDuration").value, 10) || T.DEFAULT_CONFIG.drDuration,
@@ -220,7 +177,6 @@
 
     var genResult = T.generateSchedule(input);
     var auditResult = T.auditSchedule(genResult.blocks, { config: config, facilityEnd: input.facilityEnd });
-    var patientNumberMap = buildPatientNumberMap(patients);
 
     var facilityName = document.getElementById("facilityName").value || "(施設名未入力)";
     var dateLabel = formatDateHeader(document.getElementById("visitDate").value);
@@ -257,8 +213,6 @@
     document.getElementById("facilityRuleTitle").textContent = "施設：" + facilityName + " の入力ルール";
     document.getElementById("facilityRuleView").innerHTML =
       '<div class="memo-view">' + (escapeHtml(document.getElementById("facilityRuleMemo").value) || "（未入力）") + "</div>";
-
-    renderStrictCheck(genResult.blocks, patientNumberMap);
 
     renderFindings(document.getElementById("creationFindings"), genResult.creationErrors);
     renderFindings(document.getElementById("auditFindings"), auditResult.findings);
