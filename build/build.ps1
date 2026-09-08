@@ -38,6 +38,26 @@ if (-not $ahk2exe) {
     throw "Ahk2Exe.exe が見つかりません。AutoHotkey v2 をインストールしてください: https://www.autohotkey.com/"
 }
 
+# Ahk2Exe needs a "base file" (the AutoHotkey v2 runtime .exe it binds the
+# compiled script into). Ahk2Exe's GUI lets you configure a default base
+# file and remembers it, but a fresh install run from the command line has
+# no default set yet, which fails with "Error: No default Base file
+# specified." Passing /bin explicitly sidesteps that GUI-only setting
+# entirely, so this works on a machine that has never opened the Ahk2Exe
+# GUI before.
+$baseFileCandidates = @(
+    "$Env:ProgramFiles\AutoHotkey\v2\AutoHotkey64.exe",
+    "$Env:ProgramFiles\AutoHotkey\v2\AutoHotkey32.exe",
+    "${Env:ProgramFiles(x86)}\AutoHotkey\v2\AutoHotkey64.exe",
+    "${Env:ProgramFiles(x86)}\AutoHotkey\v2\AutoHotkey32.exe",
+    "$Env:ProgramFiles\AutoHotkey\AutoHotkey64.exe",
+    "${Env:ProgramFiles(x86)}\AutoHotkey\AutoHotkey64.exe"
+)
+$baseFile = $baseFileCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $baseFile) {
+    throw "AutoHotkey v2のベースファイル(AutoHotkey64.exe等)が見つかりません。AutoHotkey v2 が正しくインストールされているか確認してください。"
+}
+
 if (Test-Path $DistDir) {
     Remove-Item $DistDir -Recurse -Force
 }
@@ -46,7 +66,7 @@ New-Item -ItemType Directory -Path $DistDir | Out-Null
 $mainAhk = Join-Path $RepoRoot "src\main.ahk"
 $exePath = Join-Path $DistDir $ExeName
 
-& $ahk2exe /in $mainAhk /out $exePath
+& $ahk2exe /in $mainAhk /out $exePath /bin $baseFile
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path $exePath)) {
     throw "コンパイルに失敗しました。"
 }
