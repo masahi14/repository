@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Static safety check: makes sure this codebase cannot fabricate
     clinical measurement data (blood pressure, pulse, SpO2, timings,

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Compiles src/main.ahk into a single .exe and assembles a dist/
     folder ready to copy to the shared deployment folder.

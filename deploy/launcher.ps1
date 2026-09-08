@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Mirrors the shared dist folder to this PC's local disk, then
     launches the panel from the local copy.

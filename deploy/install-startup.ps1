@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Registers this PC to launch the karte panel automatically at logon.
     Run once per PC (20 times total during initial rollout, since each
