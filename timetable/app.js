@@ -168,7 +168,15 @@
     return parseInt(m[2], 10) + "月" + parseInt(m[3], 10) + "日（" + weekday + "）";
   }
 
-  function renderPatientTimetable(patients, blocks, drNames, dhNames) {
+  function buildPatientNumberMap(patients) {
+    var map = {};
+    patients.forEach(function (p, idx) {
+      map[p.id] = idx + 1;
+    });
+    return map;
+  }
+
+  function renderPatientTimetable(patients, blocks, drNames, dhNames, dhRoleLabel) {
     var byPatientStaff = {};
     blocks.forEach(function (b) {
       byPatientStaff[b.patientId + "|" + b.staffType + "|" + b.staffName] = b;
@@ -180,7 +188,9 @@
 
     var html = "<thead><tr><th>患者</th><th>ID</th><th>氏名</th><th>区分</th>";
     columns.forEach(function (c) {
-      html += "<th>" + (c.type === "dr" ? "Dr " : "DH ") + escapeHtml(c.name) + "</th>";
+      var label = (c.type === "dr" ? "Dr " : "DH ") + escapeHtml(c.name);
+      if (c.type === "dh" && dhRoleLabel) label += "（" + escapeHtml(dhRoleLabel) + "）";
+      html += "<th>" + label + "</th>";
     });
     html += "</tr></thead><tbody>";
 
@@ -196,6 +206,39 @@
     });
     html += "</tbody>";
     document.getElementById("patientTimetable").innerHTML = html;
+  }
+
+  function renderStrictCheck(blocks, patientNumberMap) {
+    var byStaff = T.groupByStaffSorted(blocks);
+    var container = document.getElementById("strictCheckView");
+    var html = '<div class="strict-check-cols">';
+    var keys = Object.keys(byStaff).sort(function (a, b) {
+      var aType = a.split("|")[0];
+      var bType = b.split("|")[0];
+      if (aType !== bType) return aType === "dr" ? -1 : 1;
+      return a < b ? -1 : a > b ? 1 : 0;
+    });
+    keys.forEach(function (key) {
+      var parts = key.split("|");
+      var label = (parts[0] === "dr" ? "Dr" : "DH") + "（" + parts[1] + "）";
+      var list = byStaff[key];
+      html += "<div><div class=\"staff-name\">" + escapeHtml(label) + "</div>";
+      var gaps = T.computeGaps(list);
+      if (gaps.length === 0) {
+        html += '<div class="gap-line">（患者1名のみ）</div>';
+      }
+      gaps.forEach(function (g) {
+        var fromNo = patientNumberMap[g.from.patientId];
+        var toNo = patientNumberMap[g.to.patientId];
+        html +=
+          '<div class="gap-line">●' + fromNo + "終了" + T.toHHMM(g.from.end) +
+          " → " + toNo + "開始" + T.toHHMM(g.to.start) +
+          "：" + g.gap + "分</div>";
+      });
+      html += "</div>";
+    });
+    html += "</div>";
+    container.innerHTML = html;
   }
 
   function renderVisitInput() {
@@ -249,6 +292,7 @@
 
     var genResult = T.generateSchedule(input);
     var auditResult = T.auditSchedule(genResult.blocks, { config: config, facilityEnd: input.facilityEnd });
+    var patientNumberMap = buildPatientNumberMap(patients);
 
     var facilityName = document.getElementById("facilityName").value || "(施設名未入力)";
     var dateLabel = formatDateHeader(document.getElementById("visitDate").value);
@@ -270,7 +314,8 @@
     document.getElementById("sheetSubheader").innerHTML =
       (subLine1 ? escapeHtml(subLine1) + "<br>" : "") + escapeHtml(subLine2);
 
-    renderPatientTimetable(patients, genResult.blocks, drNames, dhNames);
+    var dhRoleLabel = document.getElementById("dhRoleLabel").value.trim();
+    renderPatientTimetable(patients, genResult.blocks, drNames, dhNames, dhRoleLabel);
 
     var maxEnd = null;
     genResult.blocks.forEach(function (b) {
@@ -280,6 +325,7 @@
       "診療終了予定　" + (maxEnd !== null ? T.toHHMM(maxEnd) : "-");
 
     renderVisitInput();
+    renderStrictCheck(genResult.blocks, patientNumberMap);
 
     document.getElementById("facilityRuleTitle").textContent = "施設：" + facilityName + " の入力ルール";
     document.getElementById("facilityRuleView").innerHTML =

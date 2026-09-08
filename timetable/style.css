@@ -225,7 +225,7 @@ textarea {
   grid-template-columns: 2fr 1fr;
   grid-template-areas:
     "patients visit"
-    "patients facility";
+    "strict facility";
   gap: 8px;
   margin-top: 8px;
 }
@@ -277,6 +277,10 @@ textarea {
   border-radius: 4px 4px 0 0;
 }
 
+.panel-strict-check {
+  grid-area: strict;
+}
+
 .panel-facility-rule {
   grid-area: facility;
 }
@@ -287,6 +291,25 @@ textarea {
   padding: 4px 8px;
   margin: -8px -8px 6px;
   border-radius: 4px 4px 0 0;
+}
+
+.strict-check-cols {
+  display: flex;
+  gap: 12px;
+}
+
+.strict-check-cols > div {
+  flex: 1;
+}
+
+.strict-check-cols .staff-name {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.gap-line {
+  font-size: 12px;
+  margin-bottom: 2px;
 }
 
 .memo-view {
