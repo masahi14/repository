@@ -5,7 +5,7 @@
 AutoHotkey v2 がインストールされているPC(開発・ビルド用の1台でよい)で実行する。
 
 ```powershell
-pwsh -File build\build.ps1
+powershell -ExecutionPolicy Bypass -File build\build.ps1
 ```
 
 `dist\` フォルダに `DentalKartePanel.exe` と `config\` 一式が出力される。
@@ -19,7 +19,7 @@ pwsh -File build\build.ps1
 各PCで、共有フォルダにアクセスできる状態で以下を実行する。
 
 ```powershell
-pwsh -File deploy\install-startup.ps1 -SharedDistPath "\\FILESERVER\dental-tools\karte-panel\dist"
+powershell -ExecutionPolicy Bypass -File deploy\install-startup.ps1 -SharedDistPath "\\FILESERVER\dental-tools\karte-panel\dist"
 ```
 
 これにより、次回ログオン時から自動的にパネルが起動するようになる。ログオフ・再ログオンするか、手順の最後に表示されるコマンドで即座に試すこともできる。

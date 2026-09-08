@@ -11,7 +11,7 @@
     run the compiled exe.
 
 .EXAMPLE
-    pwsh -File build/build.ps1
+    powershell -ExecutionPolicy Bypass -File build\build.ps1
 #>
 
 $ErrorActionPreference = "Stop"
@@ -19,9 +19,12 @@ $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $DistDir = Join-Path $RepoRoot "dist"
 $ExeName = "DentalKartePanel.exe"
 
-# Never ship a build that fails the safety static check.
+# Never ship a build that fails the safety static check. Invoked as a
+# child script of whichever PowerShell engine is already running this
+# file (Windows PowerShell 5.1 or PowerShell 7), rather than hardcoding
+# "pwsh", since PowerShell 7 is not installed on every machine.
 $checkScript = Join-Path $RepoRoot "tests\config-validation\check-forbidden-patterns.ps1"
-& pwsh -File $checkScript
+& $checkScript
 if ($LASTEXITCODE -ne 0) {
     throw "静的安全チェックに失敗したため、ビルドを中止しました。"
 }

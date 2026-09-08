@@ -12,7 +12,7 @@
     any failure as a blocker, not a warning to ignore.
 
 .EXAMPLE
-    pwsh -File tests/config-validation/check-forbidden-patterns.ps1
+    powershell -ExecutionPolicy Bypass -File tests\config-validation\check-forbidden-patterns.ps1
 #>
 
 $ErrorActionPreference = "Stop"

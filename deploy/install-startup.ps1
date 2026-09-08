@@ -9,7 +9,7 @@
     \\FILESERVER\dental-tools\karte-panel\dist
 
 .EXAMPLE
-    pwsh -File deploy\install-startup.ps1 -SharedDistPath "\\FILESERVER\dental-tools\karte-panel\dist"
+    powershell -ExecutionPolicy Bypass -File deploy\install-startup.ps1 -SharedDistPath "\\FILESERVER\dental-tools\karte-panel\dist"
 #>
 
 param(
