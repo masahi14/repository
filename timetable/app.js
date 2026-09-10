@@ -12,6 +12,13 @@
   var CIRCLED_DIGITS = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩", "⑪", "⑫", "⑬", "⑭", "⑮", "⑯", "⑰", "⑱", "⑲", "⑳"];
   var ICON_BY_TYPE = { main: "🔴", sub: "🟡", note: "⚠️" };
 
+  // 施設ごとの介護保険の傾向（ユーザーからの申告に基づく参考メモ。自動判定には使わない）
+  var FACILITY_CARE_HINT = {
+    "養護老人ホーム潮来": { text: "この施設は「介護あり」「介護なし」が混在します。患者ごとに介護保険の有無を確認してください。", defaultCare: "" },
+    "ハートワン潮来": { text: "この施設は基本的に全員「介護保険併用」です。", defaultCare: "あり" }
+  };
+  var currentCareDefault = "";
+
   function circledNumber(n) {
     return CIRCLED_DIGITS[n - 1] || String(n);
   }
@@ -46,7 +53,8 @@
     tr.innerHTML =
       '<td><input type="text" class="p-patient-id" placeholder="ID(任意)" /></td>' +
       '<td><input type="text" class="p-name" placeholder="患者名" /></td>' +
-      '<td><input type="text" class="p-note" placeholder="例）新患・介護併用" /></td>' +
+      '<td><select class="p-care"><option value="">未設定</option><option value="あり">あり</option><option value="なし">なし</option></select></td>' +
+      '<td><input type="text" class="p-note" placeholder="例）新患" /></td>' +
       '<td><select class="p-role"><option value="dr">Drのみ</option><option value="dh">DHのみ</option><option value="both">両方</option></select></td>' +
       '<td><select class="p-order"><option value="dr-then-dh">Dr→DH</option><option value="dh-then-dr">DH→Dr</option></select></td>' +
       '<td><select class="p-dr">' + optionsHtml(drNamesList()) + "</select></td>" +
@@ -54,6 +62,9 @@
       '<td><input type="number" class="p-dr-override" min="1" placeholder="任意" /></td>' +
       '<td><input type="number" class="p-dh-override" min="1" placeholder="任意" /></td>' +
       '<td><button type="button" class="danger remove-row">削除</button></td>';
+    if (currentCareDefault) {
+      tr.querySelector(".p-care").value = currentCareDefault;
+    }
     patientBody.appendChild(tr);
     tr.querySelector(".remove-row").addEventListener("click", function () {
       tr.remove();
@@ -114,6 +125,37 @@
     window.print();
   });
 
+  document.getElementById("facilityPreset").addEventListener("change", function () {
+    var val = this.value;
+    var hint = document.getElementById("facilityHint");
+    if (!val) {
+      hint.classList.add("hidden");
+      currentCareDefault = "";
+      return;
+    }
+    if (val === "custom") {
+      document.getElementById("facilityName").value = "";
+      document.getElementById("facilityName").focus();
+      hint.classList.add("hidden");
+      currentCareDefault = "";
+      return;
+    }
+    document.getElementById("facilityName").value = val;
+    currentCareDefault = (FACILITY_CARE_HINT[val] || {}).defaultCare || "";
+    if (currentCareDefault) {
+      document.querySelectorAll(".p-care").forEach(function (sel) {
+        if (!sel.value) sel.value = currentCareDefault;
+      });
+    }
+    var hintText = (FACILITY_CARE_HINT[val] || {}).text;
+    if (hintText) {
+      hint.textContent = "💡 " + hintText;
+      hint.classList.remove("hidden");
+    } else {
+      hint.classList.add("hidden");
+    }
+  });
+
   // 初期表示用に1行用意
   addPatientRow();
 
@@ -133,6 +175,7 @@
         id: identity,
         patientId: patientId,
         name: name,
+        care: tr.querySelector(".p-care").value,
         note: tr.querySelector(".p-note").value.trim(),
         role: role,
         order: tr.querySelector(".p-order").value,
@@ -186,7 +229,7 @@
       dhNames.map(function (n) { return { type: "dh", name: n }; })
     );
 
-    var html = "<thead><tr><th>患者</th><th>ID</th><th>氏名</th><th>区分</th>";
+    var html = "<thead><tr><th>患者</th><th>ID</th><th>氏名</th><th>介護保険</th><th>区分</th>";
     columns.forEach(function (c) {
       var label = (c.type === "dr" ? "Dr " : "DH ") + escapeHtml(c.name);
       if (c.type === "dh" && dhRoleLabel) label += "（" + escapeHtml(dhRoleLabel) + "）";
@@ -195,9 +238,10 @@
     html += "</tr></thead><tbody>";
 
     patients.forEach(function (p, idx) {
+      var careDisplay = p.care ? p.care : '<span style="color:#b3261e;">未設定</span>';
       html +=
         "<tr><td>" + circledNumber(idx + 1) + "</td><td>" + escapeHtml(p.patientId || "-") + "</td><td>" +
-        escapeHtml(p.name) + "</td><td>" + escapeHtml(p.note || "") + "</td>";
+        escapeHtml(p.name) + "</td><td>" + careDisplay + "</td><td>" + escapeHtml(p.note || "") + "</td>";
       columns.forEach(function (c) {
         var b = byPatientStaff[p.id + "|" + c.type + "|" + c.name];
         html += "<td>" + (b ? T.toHHMM(b.start) + "〜" + T.toHHMM(b.end) + "（" + (b.end - b.start) + "分）" : "") + "</td>";
@@ -331,17 +375,28 @@
     document.getElementById("facilityRuleView").innerHTML =
       '<div class="memo-view">' + (escapeHtml(document.getElementById("facilityRuleMemo").value) || "（未入力）") + "</div>";
 
-    renderFindings(document.getElementById("creationFindings"), genResult.creationErrors);
+    var creationFindings = genResult.creationErrors.slice();
+    patients.forEach(function (p, idx) {
+      if (!p.care) {
+        creationFindings.push({
+          severity: "warn",
+          code: "CARE_STATUS_UNSET",
+          message: "患者「" + (p.name || (idx + 1) + "件目") + "」：介護保険の有無が未設定です。区分を確認してください。"
+        });
+      }
+    });
+    renderFindings(document.getElementById("creationFindings"), creationFindings);
     renderFindings(document.getElementById("auditFindings"), auditResult.findings);
 
-    var creationHasError = genResult.creationErrors.some(function (e) { return e.severity === "error"; });
-    var overall = creationHasError ? "error" : auditResult.overall;
+    var creationHasError = creationFindings.some(function (e) { return e.severity === "error"; });
+    var creationHasWarn = creationFindings.some(function (e) { return e.severity === "warn"; });
+    var overall = creationHasError ? "error" : (creationHasWarn || auditResult.overall === "warn") ? "warn" : auditResult.overall;
     var finalEl = document.getElementById("sheetFinal");
     finalEl.className = "sheet-final " + overall;
     if (overall === "ok") {
       finalEl.textContent = "🟢 時間チェック：OK　同一患者でのDr・DH重複なし／Dr・DHそれぞれの重複なし";
     } else if (overall === "warn") {
-      finalEl.textContent = "🟡 要確認：下記「独立監査 詳細」を確認してください（重複はありませんが確認が必要な項目があります）";
+      finalEl.textContent = "🟡 要確認：上記「作成時チェック」または下記「独立監査 詳細」を確認してください";
     } else {
       finalEl.textContent = "🔴 エラー：時間重複または二重登録があります。このタイムテーブルは使用できません。「独立監査 詳細」を確認してください";
     }

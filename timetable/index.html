@@ -13,9 +13,21 @@
   <h2>基本情報</h2>
   <div class="row">
     <div class="field">
+      <label>施設を選ぶ（クイック選択）</label>
+      <select id="facilityPreset">
+        <option value="">選択してください</option>
+        <option value="養護老人ホーム潮来">養護老人ホーム潮来</option>
+        <option value="ハートワン潮来">ハートワン潮来</option>
+        <option value="custom">＋ 別の施設名を入力</option>
+      </select>
+    </div>
+    <div class="field">
       <label>施設名</label>
       <input type="text" id="facilityName" placeholder="例）ハートワン潮来" />
     </div>
+  </div>
+  <div id="facilityHint" class="hidden note"></div>
+  <div class="row">
     <div class="field">
       <label>日付（YYYY-MM-DD）</label>
       <input type="text" id="visitDate" placeholder="例）2026-09-01" />
@@ -91,6 +103,7 @@
       <tr>
         <th>患者ID</th>
         <th>患者名</th>
+        <th>介護保険</th>
         <th>備考（区分・任意）</th>
         <th>担当区分</th>
         <th>順序(両方の場合)</th>
