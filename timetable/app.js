@@ -44,7 +44,8 @@
     });
   }
 
-  function addPatientRow() {
+  function addPatientRow(options) {
+    options = options || {};
     rowSeq++;
     var id = "row-" + rowSeq;
     var tr = document.createElement("tr");
@@ -65,10 +66,24 @@
     if (currentCareDefault) {
       tr.querySelector(".p-care").value = currentCareDefault;
     }
+    if (options.consultation) {
+      tr.dataset.consultation = "1";
+      tr.querySelector(".p-name").value = "施設相談";
+      tr.querySelector(".p-note").value = "施設相談";
+      tr.querySelector(".p-role").value = "dr";
+      tr.querySelector(".p-dr-override").value = "5";
+      if (drNamesList().length === 1) {
+        tr.querySelector(".p-dr").value = drNamesList()[0];
+      }
+    }
     patientBody.appendChild(tr);
     tr.querySelector(".remove-row").addEventListener("click", function () {
       tr.remove();
     });
+  }
+
+  function addConsultRow() {
+    addPatientRow({ consultation: true });
   }
 
   function addVisitItemRow() {
@@ -118,7 +133,8 @@
     });
   }
 
-  document.getElementById("addPatientBtn").addEventListener("click", addPatientRow);
+  document.getElementById("addPatientBtn").addEventListener("click", function () { addPatientRow(); });
+  document.getElementById("addConsultBtn").addEventListener("click", addConsultRow);
   document.getElementById("drNames").addEventListener("input", refreshStaffSelects);
   document.getElementById("dhNames").addEventListener("input", refreshStaffSelects);
   document.getElementById("printBtn").addEventListener("click", function () {
@@ -168,9 +184,11 @@
       var dhOverride = tr.querySelector(".p-dh-override").value;
       var patientId = tr.querySelector(".p-patient-id").value.trim();
       var name = tr.querySelector(".p-name").value.trim();
+      var isConsultation = tr.dataset.consultation === "1";
       // 二重登録チェックの識別キー：患者IDがあればID、無ければ氏名で同一人物を判定する
       // （行ごとに自動採番されるtr.dataset.idは常に一意なため、識別キーには使えない）
-      var identity = patientId || name || tr.dataset.id;
+      // 施設相談は同じ名前で複数回登録されうる（別人物ではない）ので、氏名ではなく行IDで区別する
+      var identity = patientId || (isConsultation ? null : name) || tr.dataset.id;
       patients.push({
         id: identity,
         patientId: patientId,
@@ -178,6 +196,7 @@
         care: tr.querySelector(".p-care").value,
         note: tr.querySelector(".p-note").value.trim(),
         role: role,
+        isConsultation: isConsultation,
         order: tr.querySelector(".p-order").value,
         drStaff: tr.querySelector(".p-dr").value || null,
         dhStaff: tr.querySelector(".p-dh").value || null,
@@ -238,7 +257,7 @@
     html += "</tr></thead><tbody>";
 
     patients.forEach(function (p, idx) {
-      var careDisplay = p.care ? p.care : '<span style="color:#b3261e;">未設定</span>';
+      var careDisplay = p.isConsultation ? "—" : (p.care ? p.care : '<span style="color:#b3261e;">未設定</span>');
       html +=
         "<tr><td>" + circledNumber(idx + 1) + "</td><td>" + escapeHtml(p.patientId || "-") + "</td><td>" +
         escapeHtml(p.name) + "</td><td>" + careDisplay + "</td><td>" + escapeHtml(p.note || "") + "</td>";
@@ -377,6 +396,22 @@
 
     var creationFindings = genResult.creationErrors.slice();
     patients.forEach(function (p, idx) {
+      if (p.isConsultation) {
+        if (!p.drMinutesOverride) {
+          creationFindings.push({
+            severity: "warn",
+            code: "CONSULT_DURATION_UNSET",
+            message: "施設相談「" + (idx + 1) + "件目」：相談時間(分)が未入力のため、通常のDr処置時間で計算されています。3〜10分程度を入力してください。"
+          });
+        } else if (p.drMinutesOverride > 10) {
+          creationFindings.push({
+            severity: "warn",
+            code: "CONSULT_DURATION_LONG",
+            message: "施設相談「" + (p.name || (idx + 1) + "件目") + "」：相談時間が" + p.drMinutesOverride + "分です（目安は長くて10分）。時間を確認してください。"
+          });
+        }
+        return;
+      }
       if (!p.care) {
         creationFindings.push({
           severity: "warn",
