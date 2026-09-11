@@ -40,18 +40,37 @@ check("Drのみ複数患者：通常間隔で連続割付", function () {
   assert.strictEqual(result.blocks[1].start, 564); // +2分ギャップ
 });
 
-check("Dr→DHの順序：DHはDr終了後まで開始しない", function () {
+check("患者が1人だけの場合：DHはDr終了後まで開始しない（他に担当できる患者がいないため）", function () {
   var result = T.generateSchedule({
     facilityStart: "09:00",
     drNames: ["山田Dr"],
     dhNames: ["鈴木DH"],
     patients: [
-      { id: "p1", name: "患者A", role: "both", order: "dr-then-dh", drStaff: "山田Dr", dhStaff: "鈴木DH" }
+      { id: "p1", name: "患者A", role: "both", drStaff: "山田Dr", dhStaff: "鈴木DH" }
     ]
   });
   var dr = result.blocks.find(function (b) { return b.staffType === "dr"; });
   var dh = result.blocks.find(function (b) { return b.staffType === "dh"; });
   assert.ok(dh.start >= dr.end, "DH開始はDr終了以降であるべき");
+});
+
+check("Dr・DH同時スタート：患者が複数いればDHはDrを待たず別患者から始める", function () {
+  var result = T.generateSchedule({
+    facilityStart: "09:00",
+    drNames: ["山田Dr"],
+    dhNames: ["鈴木DH"],
+    patients: [
+      { id: "p1", name: "患者A", role: "both", drStaff: "山田Dr", dhStaff: "鈴木DH" },
+      { id: "p2", name: "患者B", role: "both", drStaff: "山田Dr", dhStaff: "鈴木DH" }
+    ]
+  });
+  var dhBlocks = result.blocks.filter(function (b) { return b.staffType === "dh"; });
+  var dhFirstStart = Math.min.apply(null, dhBlocks.map(function (b) { return b.start; }));
+  assert.strictEqual(dhFirstStart, 540, "DHはDrと同じ9:00から稼働を始めるべき（別患者を担当）");
+
+  // 監査A（同一患者のDr/DH重複なし）が独立監査でも通ることを確認
+  var audit = T.auditSchedule(result.blocks);
+  assert.ok(!audit.findings.some(function (f) { return f.code === "AUDIT_A_OVERLAP"; }));
 });
 
 check("短時間処置：指定時間を優先しルール除外", function () {

@@ -60,7 +60,6 @@
       '<td><select class="p-care"><option value="">未設定</option><option value="あり">あり</option><option value="なし">なし</option></select></td>' +
       '<td><input type="text" class="p-note" placeholder="例）新患" /></td>' +
       '<td><select class="p-role"><option value="dr">Drのみ</option><option value="dh">DHのみ</option><option value="both">両方</option></select></td>' +
-      '<td><select class="p-order"><option value="dr-then-dh">Dr→DH</option><option value="dh-then-dr">DH→Dr</option></select></td>' +
       '<td><select class="p-dr">' + optionsHtml(drNamesList()) + "</select></td>" +
       '<td><select class="p-dh">' + optionsHtml(dhNamesList()) + "</select></td>" +
       '<td><input type="number" class="p-dr-override" min="1" placeholder="任意" /></td>' +
@@ -78,19 +77,11 @@
       if (drNamesList().length === 1) {
         tr.querySelector(".p-dr").value = drNamesList()[0];
       }
-      tr.querySelector(".p-role").dispatchEvent(new Event("change"));
     }
     patientBody.appendChild(tr);
     tr.querySelector(".remove-row").addEventListener("click", function () {
       tr.remove();
     });
-    var roleSelect = tr.querySelector(".p-role");
-    var orderSelect = tr.querySelector(".p-order");
-    function syncOrderEnabled() {
-      orderSelect.disabled = roleSelect.value !== "both";
-    }
-    roleSelect.addEventListener("change", syncOrderEnabled);
-    syncOrderEnabled();
   }
 
   function addConsultRow() {
@@ -110,8 +101,6 @@
       var tr = rows[rows.length - 1];
       tr.querySelector(".p-name").value = "患者" + (startNum + i + 1);
       tr.querySelector(".p-role").value = "both";
-      tr.querySelector(".p-role").dispatchEvent(new Event("change"));
-      tr.querySelector(".p-order").value = "dr-then-dh";
       if (drList.length === 1) tr.querySelector(".p-dr").value = drList[0];
       if (dhList.length === 1) tr.querySelector(".p-dh").value = dhList[0];
     }
@@ -272,7 +261,6 @@
         note: tr.querySelector(".p-note").value.trim(),
         role: role,
         isConsultation: isConsultation,
-        order: tr.querySelector(".p-order").value,
         drStaff: tr.querySelector(".p-dr").value || null,
         dhStaff: tr.querySelector(".p-dh").value || null,
         drMinutesOverride: drOverride ? parseInt(drOverride, 10) : null,

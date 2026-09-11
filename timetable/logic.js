@@ -83,7 +83,6 @@
    *     id: string,               // 一意なID（未入力時は自動採番）
    *     name: string,
    *     role: 'dr' | 'dh' | 'both',
-   *     order: 'dr-then-dh' | 'dh-then-dr' (roleが'both'の時のみ必須),
    *     drStaff: string (roleが'dr'または'both'の時必須),
    *     dhStaff: string (roleが'dh'または'both'の時必須),
    *     drMinutesOverride: number|null,  // 短時間処置等でDr時間を指定時に使用（通常ルール除外）
@@ -91,6 +90,14 @@
    *   }
    * @param {Object} [input.config] DEFAULT_CONFIG を上書き
    * @returns {{blocks: Array, creationErrors: Array}}
+   *
+   * 割付方針（Dr・DH同時スタート）：
+   * ① Drは患者リストの順番通りに、開始時刻から連続して割り付ける（DHとは無関係に決まる）。
+   * ② DHも同じ開始時刻からスタートし、患者リストを順番に見ていって、
+   *    その時点でDrの時間と重ならない最初の患者を担当する。重なる場合は次の候補を試し、
+   *    全員重なる場合はDrが空くまで待つ。
+   * この2段階方式により、DrとDHが同一患者では絶対に重ならないという原則を守りながら、
+   * DHがDrの終了をただ待つのではなく、別の患者を先に担当して同時に稼働できるようにする。
    */
   function generateSchedule(input) {
     var config = Object.assign({}, DEFAULT_CONFIG, input.config || {});
@@ -108,15 +115,7 @@
       return { blocks: blocks, creationErrors: creationErrors };
     }
 
-    var drPointer = {};
-    (input.drNames || []).forEach(function (n) {
-      drPointer[n] = facilityStartMin;
-    });
-    var dhPointer = {};
-    (input.dhNames || []).forEach(function (n) {
-      dhPointer[n] = facilityStartMin;
-    });
-
+    var validPatients = [];
     (input.patients || []).forEach(function (p, idx) {
       var label = "患者「" + (p.name || "(未入力)") + "」(" + (idx + 1) + "件目)";
       var pid = p.id || "row-" + idx;
@@ -150,57 +149,68 @@
         creationErrors.push({ severity: "error", code: "MISSING_DH_STAFF", message: label + "：担当DHが未選択です" });
         return;
       }
-      if (needsDr && needsDh && p.order !== "dr-then-dh" && p.order !== "dh-then-dr") {
-        creationErrors.push({ severity: "error", code: "MISSING_ORDER", message: label + "：Dr/DHどちらが先か（順序）が未設定です" });
-        return;
-      }
 
-      function pushBlock(staffType, staffName, start, end) {
-        blocks.push({
-          staffType: staffType,
-          staffName: staffName,
-          patientId: pid,
-          patientName: p.name,
-          start: start,
-          end: end
-        });
-      }
+      validPatients.push({ ref: p, id: pid, needsDr: needsDr, needsDh: needsDh });
+    });
 
-      if (p.role === "dr") {
-        var dur = p.drMinutesOverride || config.drDuration;
-        var start = drPointer[p.drStaff];
-        var end = start + dur;
-        pushBlock("dr", p.drStaff, start, end);
-        drPointer[p.drStaff] = end + config.drGap;
-      } else if (p.role === "dh") {
-        var dDur = p.dhMinutesOverride || config.dhDuration;
-        var dStart = dhPointer[p.dhStaff];
-        var dEnd = dStart + dDur;
-        pushBlock("dh", p.dhStaff, dStart, dEnd);
-        dhPointer[p.dhStaff] = dEnd + config.dhGap;
-      } else if (p.role === "both") {
-        if (p.order === "dr-then-dh") {
-          var drDur = p.drMinutesOverride || config.drDuration;
-          var drStart = drPointer[p.drStaff];
-          var drEnd = drStart + drDur;
-          var dhDur = p.dhMinutesOverride || config.dhDuration;
-          var dhStart = Math.max(dhPointer[p.dhStaff], drEnd);
-          var dhEnd = dhStart + dhDur;
-          pushBlock("dr", p.drStaff, drStart, drEnd);
-          pushBlock("dh", p.dhStaff, dhStart, dhEnd);
-          drPointer[p.drStaff] = drEnd + config.drGap;
-          dhPointer[p.dhStaff] = dhEnd + config.dhGap;
+    // ① Dr：患者リスト順に、担当Drごとの持ち時間へ連続して割り付ける
+    var drPointer = {};
+    (input.drNames || []).forEach(function (n) {
+      drPointer[n] = facilityStartMin;
+    });
+    var drBlockByPatient = {};
+    validPatients.forEach(function (vp) {
+      if (!vp.needsDr) return;
+      var p = vp.ref;
+      var dur = p.drMinutesOverride || config.drDuration;
+      var start = drPointer[p.drStaff];
+      var end = start + dur;
+      var block = { staffType: "dr", staffName: p.drStaff, patientId: vp.id, patientName: p.name, start: start, end: end };
+      blocks.push(block);
+      drBlockByPatient[vp.id] = block;
+      drPointer[p.drStaff] = end + config.drGap;
+    });
+
+    // ② DH：同じ開始時刻からスタートし、その時点でDrと重ならない患者を順に探して埋めていく
+    var dhByStaff = {};
+    validPatients.forEach(function (vp) {
+      if (!vp.needsDh) return;
+      var staff = vp.ref.dhStaff;
+      dhByStaff[staff] = dhByStaff[staff] || [];
+      dhByStaff[staff].push(vp);
+    });
+    Object.keys(dhByStaff).forEach(function (staffName) {
+      var remaining = dhByStaff[staffName].slice();
+      var dhPointer = facilityStartMin;
+      var guard = 0;
+      while (remaining.length > 0 && guard < 10000) {
+        guard++;
+        var scheduledIdx = -1;
+        for (var i = 0; i < remaining.length; i++) {
+          var vp = remaining[i];
+          var p = vp.ref;
+          var dur = p.dhMinutesOverride || config.dhDuration;
+          var candStart = dhPointer;
+          var candEnd = candStart + dur;
+          var drBlock = drBlockByPatient[vp.id];
+          var conflict = drBlock && candStart < drBlock.end && drBlock.start < candEnd;
+          if (!conflict) {
+            blocks.push({ staffType: "dh", staffName: staffName, patientId: vp.id, patientName: p.name, start: candStart, end: candEnd });
+            dhPointer = candEnd + config.dhGap;
+            scheduledIdx = i;
+            break;
+          }
+        }
+        if (scheduledIdx !== -1) {
+          remaining.splice(scheduledIdx, 1);
         } else {
-          var dhDur2 = p.dhMinutesOverride || config.dhDuration;
-          var dhStart2 = dhPointer[p.dhStaff];
-          var dhEnd2 = dhStart2 + dhDur2;
-          var drDur2 = p.drMinutesOverride || config.drDuration;
-          var drStart2 = Math.max(drPointer[p.drStaff], dhEnd2);
-          var drEnd2 = drStart2 + drDur2;
-          pushBlock("dh", p.dhStaff, dhStart2, dhEnd2);
-          pushBlock("dr", p.drStaff, drStart2, drEnd2);
-          dhPointer[p.dhStaff] = dhEnd2 + config.dhGap;
-          drPointer[p.drStaff] = drEnd2 + config.drGap;
+          // 候補全員がDrと重なる → 一番早く空く（Drが終わる）時刻まで進めて再挑戦
+          var earliestFree = null;
+          remaining.forEach(function (vp) {
+            var drBlock = drBlockByPatient[vp.id];
+            if (drBlock && (earliestFree === null || drBlock.end < earliestFree)) earliestFree = drBlock.end;
+          });
+          dhPointer = earliestFree !== null && earliestFree > dhPointer ? earliestFree : dhPointer + 1;
         }
       }
     });
