@@ -119,6 +119,66 @@ check("正常ケースは overall=ok", function () {
   assert.strictEqual(audit.overall, "ok");
 });
 
+check("歯科訪問診療料：1人のみ→区分1、20分以上は1100点", function () {
+  var patients = [{ id: "p1", name: "患者A", role: "dr" }];
+  var blocks = [{ staffType: "dr", staffName: "美恵子先生", patientId: "p1", patientName: "患者A", start: 540, end: 562 }];
+  var fee = T.calcVisitFees(patients, blocks);
+  assert.strictEqual(fee.count, 1);
+  assert.strictEqual(fee.category, 1);
+  assert.strictEqual(fee.perPatient[0].points, 1100);
+  assert.strictEqual(fee.perPatient[0].assistPoints, null);
+});
+
+check("歯科訪問診療料：5人→区分3、20分未満は96点", function () {
+  var patients = [
+    { id: "p1", name: "患者A", role: "dr" },
+    { id: "p2", name: "患者B", role: "dr" },
+    { id: "p3", name: "患者C", role: "dr" },
+    { id: "p4", name: "患者D", role: "dr" },
+    { id: "p5", name: "患者E", role: "dr" }
+  ];
+  var blocks = patients.map(function (p, i) {
+    return { staffType: "dr", staffName: "美恵子先生", patientId: p.id, patientName: p.name, start: 540 + i * 30, end: 540 + i * 30 + 15 };
+  });
+  var fee = T.calcVisitFees(patients, blocks);
+  assert.strictEqual(fee.category, 3);
+  fee.perPatient.forEach(function (pf) {
+    assert.strictEqual(pf.points, 96);
+  });
+});
+
+check("歯科訪問診療補助加算：1人のみは115点、2人以上は50点", function () {
+  var onePatient = [{ id: "p1", name: "患者A", role: "both" }];
+  var oneBlocks = [{ staffType: "dr", staffName: "美恵子先生", patientId: "p1", patientName: "患者A", start: 540, end: 562 }];
+  var feeOne = T.calcVisitFees(onePatient, oneBlocks);
+  assert.strictEqual(feeOne.perPatient[0].assistPoints, 115);
+
+  var twoPatients = [
+    { id: "p1", name: "患者A", role: "both" },
+    { id: "p2", name: "患者B", role: "both" }
+  ];
+  var twoBlocks = [
+    { staffType: "dr", staffName: "美恵子先生", patientId: "p1", patientName: "患者A", start: 540, end: 562 },
+    { staffType: "dr", staffName: "美恵子先生", patientId: "p2", patientName: "患者B", start: 564, end: 586 }
+  ];
+  var feeTwo = T.calcVisitFees(twoPatients, twoBlocks);
+  assert.strictEqual(feeTwo.perPatient[0].assistPoints, 50);
+});
+
+check("歯科訪問診療料：施設相談(isConsultation)は人数に含めない", function () {
+  var patients = [
+    { id: "p1", name: "患者A", role: "dr" },
+    { id: "p2", name: "施設相談", role: "dr", isConsultation: true }
+  ];
+  var blocks = [
+    { staffType: "dr", staffName: "美恵子先生", patientId: "p1", patientName: "患者A", start: 540, end: 562 },
+    { staffType: "dr", staffName: "美恵子先生", patientId: "p2", patientName: "施設相談", start: 564, end: 569 }
+  ];
+  var fee = T.calcVisitFees(patients, blocks);
+  assert.strictEqual(fee.count, 1);
+  assert.strictEqual(fee.perPatient.length, 1);
+});
+
 console.log(passed + " passed");
 if (process.exitCode) {
   console.log("=== 一部テストが失敗しました ===");

@@ -93,9 +93,9 @@
     tr.dataset.id = "visit-item-" + visitItemSeq;
     tr.innerHTML =
       '<td><select class="vi-type"><option value="main">●主項目(赤)</option><option value="sub">●管理料等(黄)</option><option value="note">⚠️注意事項</option></select></td>' +
-      '<td><input type="text" class="vi-name" placeholder="例）歯科訪問診療料(3)" /></td>' +
-      '<td><input type="text" class="vi-caption" placeholder="例）人数の見方：当日診療した人数" /></td>' +
-      '<td><input type="text" class="vi-value" placeholder="例）5名→310点" /></td>' +
+      '<td><input type="text" class="vi-name" placeholder="例）(歯)居宅療養II" /></td>' +
+      '<td><input type="text" class="vi-caption" placeholder="例）人数の見方：月の対象人数" /></td>' +
+      '<td><input type="text" class="vi-value" placeholder="例）月10人以上" /></td>' +
       '<td><button type="button" class="danger remove-row">削除</button></td>';
     visitItemBody.appendChild(tr);
     tr.querySelector(".remove-row").addEventListener("click", function () {
@@ -304,12 +304,36 @@
     container.innerHTML = html;
   }
 
-  function renderVisitInput() {
+  function renderAutoFee(fee) {
+    if (!fee || fee.count === 0) return "";
+    var total = fee.perPatient.reduce(function (sum, pf) {
+      return sum + (pf.points || 0) + (pf.assistPoints || 0);
+    }, 0);
+    var html =
+      '<div class="visit-item auto-fee">' +
+      '<div class="visit-item-header">' +
+      '<span>🔴 歯科訪問診療料(' + fee.category + ') <span class="auto-tag">自動計算</span></span>' +
+      '<span class="visit-item-value">合計 ' + total + "点</span>" +
+      "</div>" +
+      '<div class="visit-item-caption">人数の見方：同一建物内・同日に歯科訪問診療を行った人数 → ' + fee.count + "名</div>";
+    fee.perPatient.forEach(function (pf, idx) {
+      var durText = pf.duration === null ? "時間不明" : pf.duration + "分" + (pf.over20 ? "" : "（20分未満）");
+      html += '<div class="gap-line">' + (idx + 1) + "：" + escapeHtml(pf.patientName || "") + "　" + durText + " → " + (pf.points === null ? "要確認" : pf.points + "点");
+      if (pf.assistPoints) {
+        html += "　＋歯科訪問診療補助加算 " + pf.assistPoints + "点";
+      }
+      html += "</div>";
+    });
+    html += "</div>";
+    return html;
+  }
+
+  function renderVisitInput(fee) {
     var items = collectVisitItems();
     var noteText = document.getElementById("visitInputNote").value.trim();
-    var html = "";
+    var html = renderAutoFee(fee);
     if (items.length === 0 && !noteText) {
-      html = '<div class="memo-view">（未入力）</div>';
+      html += html ? "" : '<div class="memo-view">（未入力）</div>';
     } else {
       items.forEach(function (item) {
         html +=
@@ -356,6 +380,7 @@
     var genResult = T.generateSchedule(input);
     var auditResult = T.auditSchedule(genResult.blocks, { config: config, facilityEnd: input.facilityEnd });
     var patientNumberMap = buildPatientNumberMap(patients);
+    var visitFee = T.calcVisitFees(patients, genResult.blocks);
 
     var facilityName = document.getElementById("facilityName").value || "(施設名未入力)";
     var dateLabel = formatDateHeader(document.getElementById("visitDate").value);
@@ -387,7 +412,7 @@
     document.getElementById("scheduleEndNote").textContent =
       "診療終了予定　" + (maxEnd !== null ? T.toHHMM(maxEnd) : "-");
 
-    renderVisitInput();
+    renderVisitInput(visitFee);
     renderStrictCheck(genResult.blocks, patientNumberMap);
 
     document.getElementById("facilityRuleTitle").textContent = "施設：" + facilityName + " の入力ルール";

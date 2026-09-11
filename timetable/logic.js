@@ -331,6 +331,69 @@
     return { findings: findings, overall: overall };
   }
 
+  /**
+   * C000 歯科訪問診療料（1日につき）の点数表。
+   * 根拠資料：歯科点数表の解釈（令和8年6月版）P.192-193、院内確認済み（2026年）。
+   * 区分は「同一建物内・同一日に歯科訪問診療を行った患者数」で決まり、
+   * 実際の点数は各患者ごとの診療時間が20分以上か未満かで変わる。
+   */
+  var VISIT_FEE_TABLE = [
+    { maxCount: 1, category: 1, over20: 1100, under20: 287 },
+    { maxCount: 3, category: 2, over20: 410, under20: 217 },
+    { maxCount: 9, category: 3, over20: 310, under20: 96 },
+    { maxCount: 19, category: 4, over20: 160, under20: 57 },
+    { maxCount: Infinity, category: 5, over20: 95, under20: 57 }
+  ];
+
+  /**
+   * 歯科訪問診療補助加算（DHが同行し補助を行った場合）。
+   * 在宅療養支援歯科診療所1・2等の届出医院向けの点数（院内確認済み）。
+   * 同一建物居住者かどうか（＝その日その建物で2名以上診療したか）で点数が変わる。
+   */
+  var DH_ASSIST_FEE = { alone: 115, sameBuilding: 50 };
+
+  function classifyByHeadcount(n) {
+    for (var i = 0; i < VISIT_FEE_TABLE.length; i++) {
+      if (n <= VISIT_FEE_TABLE[i].maxCount) return VISIT_FEE_TABLE[i];
+    }
+    return VISIT_FEE_TABLE[VISIT_FEE_TABLE.length - 1];
+  }
+
+  /**
+   * その日・その施設の歯科訪問診療料を自動計算する。
+   * 施設相談（isConsultation）は歯科訪問診療の対象外として人数に含めない。
+   * @param {Array} patients collectPatients() 相当の配列（role, isConsultation を持つ）
+   * @param {Array} blocks generateSchedule() の出力 blocks
+   * @returns {{count:number, category:number, perPatient:Array}}
+   */
+  function calcVisitFees(patients, blocks) {
+    var drPatients = (patients || []).filter(function (p) {
+      return !p.isConsultation && (p.role === "dr" || p.role === "both");
+    });
+    var n = drPatients.length;
+    var tier = classifyByHeadcount(n);
+
+    var perPatient = drPatients.map(function (p) {
+      var block = blocks.filter(function (b) {
+        return b.patientId === p.id && b.staffType === "dr";
+      })[0];
+      var duration = block ? block.end - block.start : null;
+      var over20 = duration === null ? null : duration >= 20;
+      var points = over20 === null ? null : (over20 ? tier.over20 : tier.under20);
+      var assistPoints = p.role === "both" ? (n === 1 ? DH_ASSIST_FEE.alone : DH_ASSIST_FEE.sameBuilding) : null;
+      return {
+        patientId: p.id,
+        patientName: p.name,
+        duration: duration,
+        over20: over20,
+        points: points,
+        assistPoints: assistPoints
+      };
+    });
+
+    return { count: n, category: tier.category, perPatient: perPatient };
+  }
+
   var api = {
     DEFAULT_CONFIG: DEFAULT_CONFIG,
     toMinutes: toMinutes,
@@ -338,7 +401,10 @@
     groupByStaffSorted: groupByStaffSorted,
     computeGaps: computeGaps,
     generateSchedule: generateSchedule,
-    auditSchedule: auditSchedule
+    auditSchedule: auditSchedule,
+    VISIT_FEE_TABLE: VISIT_FEE_TABLE,
+    DH_ASSIST_FEE: DH_ASSIST_FEE,
+    calcVisitFees: calcVisitFees
   };
 
   if (typeof module !== "undefined" && module.exports) {
