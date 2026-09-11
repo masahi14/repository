@@ -148,6 +148,13 @@ check("歯科訪問診療料：1人のみ→区分1、20分以上は1100点", fu
   assert.strictEqual(fee.perPatient[0].assistPoints, null);
 });
 
+check("歯科訪問診療補助加算：補助DHがいない場合（hasAssistantDh未指定）は両方担当でも加算しない", function () {
+  var patients = [{ id: "p1", name: "患者A", role: "both" }];
+  var blocks = [{ staffType: "dr", staffName: "美恵子先生", patientId: "p1", patientName: "患者A", start: 540, end: 562 }];
+  var fee = T.calcVisitFees(patients, blocks);
+  assert.strictEqual(fee.perPatient[0].assistPoints, null, "補助DHがいないのに加算が付いてはいけない");
+});
+
 check("歯科訪問診療料：5人→区分3、20分未満は96点", function () {
   var patients = [
     { id: "p1", name: "患者A", role: "dr" },
@@ -166,10 +173,10 @@ check("歯科訪問診療料：5人→区分3、20分未満は96点", function (
   });
 });
 
-check("歯科訪問診療補助加算：1人のみは115点、2人以上は50点", function () {
+check("歯科訪問診療補助加算：補助DHがいる場合のみ、1人のみは115点、2人以上は50点", function () {
   var onePatient = [{ id: "p1", name: "患者A", role: "both" }];
   var oneBlocks = [{ staffType: "dr", staffName: "美恵子先生", patientId: "p1", patientName: "患者A", start: 540, end: 562 }];
-  var feeOne = T.calcVisitFees(onePatient, oneBlocks);
+  var feeOne = T.calcVisitFees(onePatient, oneBlocks, { hasAssistantDh: true });
   assert.strictEqual(feeOne.perPatient[0].assistPoints, 115);
 
   var twoPatients = [
@@ -180,8 +187,12 @@ check("歯科訪問診療補助加算：1人のみは115点、2人以上は50点
     { staffType: "dr", staffName: "美恵子先生", patientId: "p1", patientName: "患者A", start: 540, end: 562 },
     { staffType: "dr", staffName: "美恵子先生", patientId: "p2", patientName: "患者B", start: 564, end: 586 }
   ];
-  var feeTwo = T.calcVisitFees(twoPatients, twoBlocks);
+  var feeTwo = T.calcVisitFees(twoPatients, twoBlocks, { hasAssistantDh: true });
   assert.strictEqual(feeTwo.perPatient[0].assistPoints, 50);
+
+  // 補助DHがいなければ、同じ患者データでも加算は付かない
+  var feeTwoNoAssist = T.calcVisitFees(twoPatients, twoBlocks);
+  assert.strictEqual(feeTwoNoAssist.perPatient[0].assistPoints, null);
 });
 
 check("歯科訪問診療料：施設相談(isConsultation)は人数に含めない", function () {

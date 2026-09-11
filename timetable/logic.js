@@ -372,11 +372,18 @@
   /**
    * その日・その施設の歯科訪問診療料を自動計算する。
    * 施設相談（isConsultation）は歯科訪問診療の対象外として人数に含めない。
+   * 歯科訪問診療補助加算は、Dr訪問に同行する補助DHが実際にいる場合のみ計算する
+   * （担当DHが患者ごとに独立して訪問歯科衛生指導等を行っているだけでは、
+   * Drに同行して補助したことにはならないため、options.hasAssistantDh を必ず渡すこと）。
    * @param {Array} patients collectPatients() 相当の配列（role, isConsultation を持つ）
    * @param {Array} blocks generateSchedule() の出力 blocks
+   * @param {Object} [options]
+   * @param {boolean} [options.hasAssistantDh] Dr訪問に同行する補助DHがいる場合のみtrue
    * @returns {{count:number, category:number, perPatient:Array}}
    */
-  function calcVisitFees(patients, blocks) {
+  function calcVisitFees(patients, blocks, options) {
+    options = options || {};
+    var hasAssistantDh = !!options.hasAssistantDh;
     var drPatients = (patients || []).filter(function (p) {
       return !p.isConsultation && (p.role === "dr" || p.role === "both");
     });
@@ -390,7 +397,7 @@
       var duration = block ? block.end - block.start : null;
       var over20 = duration === null ? null : duration >= 20;
       var points = over20 === null ? null : (over20 ? tier.over20 : tier.under20);
-      var assistPoints = p.role === "both" ? (n === 1 ? DH_ASSIST_FEE.alone : DH_ASSIST_FEE.sameBuilding) : null;
+      var assistPoints = hasAssistantDh && p.role === "both" ? (n === 1 ? DH_ASSIST_FEE.alone : DH_ASSIST_FEE.sameBuilding) : null;
       return {
         patientId: p.id,
         patientName: p.name,

@@ -443,7 +443,10 @@
     var genResult = T.generateSchedule(input);
     var auditResult = T.auditSchedule(genResult.blocks, { config: config, facilityEnd: input.facilityEnd });
     var patientNumberMap = buildPatientNumberMap(patients);
-    var visitFee = T.calcVisitFees(patients, genResult.blocks);
+    var assistantNote = document.getElementById("assistantNote").value.trim();
+    var NO_ASSISTANT_LABELS = ["なし", "無し", "無", "ー", "-"];
+    var hasAssistantDh = !!assistantNote && NO_ASSISTANT_LABELS.indexOf(assistantNote) === -1;
+    var visitFee = T.calcVisitFees(patients, genResult.blocks, { hasAssistantDh: hasAssistantDh });
 
     var facilityName = document.getElementById("facilityName").value || "(施設名未入力)";
     var dateLabel = formatDateHeader(document.getElementById("visitDate").value);
@@ -455,7 +458,6 @@
 
     var newPatientCount = document.getElementById("newPatientCount").value;
     var insuranceNote = document.getElementById("insuranceNote").value;
-    var assistantNote = document.getElementById("assistantNote").value;
     var subLine1 = [
       newPatientCount ? "患者数：" + newPatientCount + "名" : null,
       insuranceNote || null
