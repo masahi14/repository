@@ -57,6 +57,27 @@ section {
   color: #555;
 }
 
+.quick-select {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.quick-select button {
+  padding: 2px 8px;
+  font-size: 12px;
+  border-radius: 999px;
+  background: #f7f7f7;
+  border: 1px solid #ccc;
+}
+
+.quick-select button.active {
+  background: #2b5fd9;
+  color: #fff;
+  border-color: #2b5fd9;
+}
+
 input[type="text"],
 input[type="number"],
 input[type="time"],
@@ -65,6 +86,11 @@ select {
   border: 1px solid var(--border);
   border-radius: 4px;
   font-size: 13px;
+}
+
+select:disabled {
+  background: #f0f0f0;
+  color: #999;
 }
 
 table {

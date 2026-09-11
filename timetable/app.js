@@ -19,6 +19,9 @@
   };
   var currentCareDefault = "";
 
+  // よく使うDHのクイック選択候補（ボタンで追加/削除。手入力での追加も可能）
+  var KNOWN_DH_NAMES = ["諸谷さん", "菅谷さん"];
+
   function circledNumber(n) {
     return CIRCLED_DIGITS[n - 1] || String(n);
   }
@@ -75,11 +78,19 @@
       if (drNamesList().length === 1) {
         tr.querySelector(".p-dr").value = drNamesList()[0];
       }
+      tr.querySelector(".p-role").dispatchEvent(new Event("change"));
     }
     patientBody.appendChild(tr);
     tr.querySelector(".remove-row").addEventListener("click", function () {
       tr.remove();
     });
+    var roleSelect = tr.querySelector(".p-role");
+    var orderSelect = tr.querySelector(".p-order");
+    function syncOrderEnabled() {
+      orderSelect.disabled = roleSelect.value !== "both";
+    }
+    roleSelect.addEventListener("change", syncOrderEnabled);
+    syncOrderEnabled();
   }
 
   function addConsultRow() {
@@ -99,6 +110,7 @@
       var tr = rows[rows.length - 1];
       tr.querySelector(".p-name").value = "患者" + (startNum + i + 1);
       tr.querySelector(".p-role").value = "both";
+      tr.querySelector(".p-role").dispatchEvent(new Event("change"));
       tr.querySelector(".p-order").value = "dr-then-dh";
       if (drList.length === 1) tr.querySelector(".p-dr").value = drList[0];
       if (dhList.length === 1) tr.querySelector(".p-dh").value = dhList[0];
@@ -150,6 +162,37 @@
       var cur = sel.value;
       sel.innerHTML = optionsHtml(dhNamesList(), cur);
     });
+    renderDhQuickSelect();
+  }
+
+  function renderDhQuickSelect() {
+    var container = document.getElementById("dhQuickSelect");
+    var current = dhNamesList();
+    container.innerHTML = "";
+    KNOWN_DH_NAMES.forEach(function (name) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = name;
+      var isActive = current.indexOf(name) !== -1;
+      if (isActive) btn.classList.add("active");
+      btn.addEventListener("click", function () {
+        toggleDhName(name);
+      });
+      container.appendChild(btn);
+    });
+  }
+
+  function toggleDhName(name) {
+    var field = document.getElementById("dhNames");
+    var names = dhNamesList();
+    var idx = names.indexOf(name);
+    if (idx === -1) {
+      names.push(name);
+    } else {
+      names.splice(idx, 1);
+    }
+    field.value = names.join(",");
+    refreshStaffSelects();
   }
 
   document.getElementById("addPatientBtn").addEventListener("click", function () { addPatientRow(); });
@@ -157,6 +200,7 @@
   document.getElementById("bulkAddPatientsBtn").addEventListener("click", bulkAddPatients);
   document.getElementById("drNames").addEventListener("input", refreshStaffSelects);
   document.getElementById("dhNames").addEventListener("input", refreshStaffSelects);
+  renderDhQuickSelect();
   document.getElementById("printBtn").addEventListener("click", function () {
     window.print();
   });
