@@ -68,8 +68,9 @@
   </div>
   <div class="row">
     <div class="field">
-      <label>新患数（任意・表示のみ）</label>
+      <label>患者数</label>
       <input type="number" id="newPatientCount" min="0" />
+      <button type="button" id="bulkAddPatientsBtn" style="margin-top:4px;">この人数で患者を一括追加</button>
     </div>
     <div class="field">
       <label>保険・介護メモ（任意・表示のみ）</label>
@@ -98,6 +99,7 @@
 
 <section class="no-print">
   <h2>患者リスト</h2>
+  <p class="note">「患者数」欄の「一括追加」を使うと、順序（Dr→DH）などが自動設定された状態で患者行がまとめて追加されます。患者名や担当者は必要に応じて書き換えてください。</p>
   <table id="patientTable">
     <thead>
       <tr>

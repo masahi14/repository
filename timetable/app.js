@@ -86,6 +86,25 @@
     addPatientRow({ consultation: true });
   }
 
+  function bulkAddPatients() {
+    var n = parseInt(document.getElementById("newPatientCount").value, 10);
+    if (!n || n < 1) return;
+    n = Math.min(n, 30);
+    var startNum = patientBody.querySelectorAll(".patient-row").length;
+    var drList = drNamesList();
+    var dhList = dhNamesList();
+    for (var i = 0; i < n; i++) {
+      addPatientRow();
+      var rows = patientBody.querySelectorAll(".patient-row");
+      var tr = rows[rows.length - 1];
+      tr.querySelector(".p-name").value = "患者" + (startNum + i + 1);
+      tr.querySelector(".p-role").value = "both";
+      tr.querySelector(".p-order").value = "dr-then-dh";
+      if (drList.length === 1) tr.querySelector(".p-dr").value = drList[0];
+      if (dhList.length === 1) tr.querySelector(".p-dh").value = dhList[0];
+    }
+  }
+
   function addVisitItemRow() {
     visitItemSeq++;
     var tr = document.createElement("tr");
@@ -135,6 +154,7 @@
 
   document.getElementById("addPatientBtn").addEventListener("click", function () { addPatientRow(); });
   document.getElementById("addConsultBtn").addEventListener("click", addConsultRow);
+  document.getElementById("bulkAddPatientsBtn").addEventListener("click", bulkAddPatients);
   document.getElementById("drNames").addEventListener("input", refreshStaffSelects);
   document.getElementById("dhNames").addEventListener("input", refreshStaffSelects);
   document.getElementById("printBtn").addEventListener("click", function () {
@@ -394,7 +414,7 @@
     var insuranceNote = document.getElementById("insuranceNote").value;
     var assistantNote = document.getElementById("assistantNote").value;
     var subLine1 = [
-      newPatientCount ? "新患：" + newPatientCount + "名" : null,
+      newPatientCount ? "患者数：" + newPatientCount + "名" : null,
       insuranceNote || null
     ].filter(Boolean).join("／");
     var subLine2 =
