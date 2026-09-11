@@ -22,6 +22,9 @@
   // よく使うDHのクイック選択候補（ボタンで追加/削除。手入力での追加も可能）
   var KNOWN_DH_NAMES = ["諸谷さん", "菅谷さん"];
 
+  // 入力内容の自動保存（このブラウザのlocalStorageのみ。サーバーには送らない）
+  var STORAGE_KEY = "dentalTimetableFormState_v1";
+
   function circledNumber(n) {
     return CIRCLED_DIGITS[n - 1] || String(n);
   }
@@ -270,6 +273,188 @@
     return patients;
   }
 
+  function collectFormState() {
+    var patients = [];
+    patientBody.querySelectorAll(".patient-row").forEach(function (tr) {
+      patients.push({
+        isConsultation: tr.dataset.consultation === "1",
+        patientId: tr.querySelector(".p-patient-id").value,
+        name: tr.querySelector(".p-name").value,
+        care: tr.querySelector(".p-care").value,
+        note: tr.querySelector(".p-note").value,
+        role: tr.querySelector(".p-role").value,
+        dr: tr.querySelector(".p-dr").value,
+        dh: tr.querySelector(".p-dh").value,
+        drOverride: tr.querySelector(".p-dr-override").value,
+        dhOverride: tr.querySelector(".p-dh-override").value
+      });
+    });
+    var visitItems = [];
+    visitItemBody.querySelectorAll(".visit-item-row").forEach(function (tr) {
+      visitItems.push({
+        type: tr.querySelector(".vi-type").value,
+        name: tr.querySelector(".vi-name").value,
+        monthly: tr.querySelector(".vi-monthly").value,
+        caption: tr.querySelector(".vi-caption").value,
+        value: tr.querySelector(".vi-value").value
+      });
+    });
+    return {
+      savedAt: new Date().toISOString(),
+      basic: {
+        facilityPreset: document.getElementById("facilityPreset").value,
+        facilityName: document.getElementById("facilityName").value,
+        visitDate: document.getElementById("visitDate").value,
+        session: document.getElementById("session").value,
+        facilityStart: document.getElementById("facilityStart").value,
+        facilityEnd: document.getElementById("facilityEnd").value,
+        drNames: document.getElementById("drNames").value,
+        dhNames: document.getElementById("dhNames").value,
+        assistantNote: document.getElementById("assistantNote").value,
+        dhRoleLabel: document.getElementById("dhRoleLabel").value,
+        newPatientCount: document.getElementById("newPatientCount").value,
+        insuranceNote: document.getElementById("insuranceNote").value,
+        drDuration: document.getElementById("drDuration").value,
+        drGap: document.getElementById("drGap").value,
+        dhDuration: document.getElementById("dhDuration").value,
+        dhGap: document.getElementById("dhGap").value
+      },
+      patients: patients,
+      visitItems: visitItems,
+      visitInputNote: document.getElementById("visitInputNote").value,
+      facilityRuleMemo: document.getElementById("facilityRuleMemo").value
+    };
+  }
+
+  var saveTimer = null;
+  function saveFormState() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(collectFormState()));
+      } catch (e) {
+        // プライベートブラウズ等でlocalStorageが使えない場合は保存をあきらめる（他の動作には影響しない）
+      }
+    }, 300);
+  }
+
+  function loadFormState() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function clearFormState() {
+    clearTimeout(saveTimer);
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (e) {
+      // 何もできないので無視
+    }
+  }
+
+  function restoreFormState(state) {
+    var b = state.basic || {};
+    document.getElementById("facilityPreset").value = b.facilityPreset || "";
+    document.getElementById("facilityName").value = b.facilityName || "";
+    document.getElementById("visitDate").value = b.visitDate || "";
+    document.getElementById("session").value = b.session || "午前";
+    document.getElementById("facilityStart").value = b.facilityStart || "09:00";
+    document.getElementById("facilityEnd").value = b.facilityEnd || "";
+    document.getElementById("drNames").value = b.drNames || "";
+    document.getElementById("dhNames").value = b.dhNames || "";
+    document.getElementById("assistantNote").value = b.assistantNote || "";
+    document.getElementById("dhRoleLabel").value = b.dhRoleLabel || "";
+    document.getElementById("newPatientCount").value = b.newPatientCount || "";
+    document.getElementById("insuranceNote").value = b.insuranceNote || "";
+    document.getElementById("drDuration").value = b.drDuration || T.DEFAULT_CONFIG.drDuration;
+    document.getElementById("drGap").value = b.drGap || T.DEFAULT_CONFIG.drGap;
+    document.getElementById("dhDuration").value = b.dhDuration || T.DEFAULT_CONFIG.dhDuration;
+    document.getElementById("dhGap").value = b.dhGap || T.DEFAULT_CONFIG.dhGap;
+    document.getElementById("visitInputNote").value = state.visitInputNote || "";
+    document.getElementById("facilityRuleMemo").value = state.facilityRuleMemo || "";
+
+    refreshStaffSelects();
+
+    patientBody.innerHTML = "";
+    (state.patients || []).forEach(function (p) {
+      addPatientRow(p.isConsultation ? { consultation: true } : {});
+      var rows = patientBody.querySelectorAll(".patient-row");
+      var tr = rows[rows.length - 1];
+      tr.querySelector(".p-patient-id").value = p.patientId || "";
+      tr.querySelector(".p-name").value = p.name || "";
+      tr.querySelector(".p-care").value = p.care || "";
+      tr.querySelector(".p-note").value = p.note || "";
+      tr.querySelector(".p-role").value = p.role || "dr";
+      tr.querySelector(".p-dr").value = p.dr || "";
+      tr.querySelector(".p-dh").value = p.dh || "";
+      tr.querySelector(".p-dr-override").value = p.drOverride || "";
+      tr.querySelector(".p-dh-override").value = p.dhOverride || "";
+    });
+    if (patientBody.querySelectorAll(".patient-row").length === 0) {
+      addPatientRow();
+    }
+
+    visitItemBody.innerHTML = "";
+    visitItemSeq = 0;
+    (state.visitItems || []).forEach(function (item) {
+      addVisitItemRow();
+      var rows = visitItemBody.querySelectorAll(".visit-item-row");
+      var tr = rows[rows.length - 1];
+      tr.querySelector(".vi-type").value = item.type || "main";
+      tr.querySelector(".vi-name").value = item.name || "";
+      tr.querySelector(".vi-monthly").value = item.monthly || "";
+      tr.querySelector(".vi-caption").value = item.caption || "";
+      tr.querySelector(".vi-value").value = item.value || "";
+    });
+    if (visitItemBody.querySelectorAll(".visit-item-row").length === 0) {
+      addVisitItemRow();
+    }
+
+    if (b.facilityPreset && FACILITY_CARE_HINT[b.facilityPreset]) {
+      currentCareDefault = FACILITY_CARE_HINT[b.facilityPreset].defaultCare || "";
+      var hint = document.getElementById("facilityHint");
+      hint.textContent = "💡 " + FACILITY_CARE_HINT[b.facilityPreset].text;
+      hint.classList.remove("hidden");
+    }
+  }
+
+  function resetToBlank() {
+    document.getElementById("facilityPreset").value = "";
+    document.getElementById("facilityName").value = "";
+    document.getElementById("visitDate").value = "";
+    document.getElementById("session").value = "午前";
+    document.getElementById("facilityStart").value = "09:00";
+    document.getElementById("facilityEnd").value = "";
+    document.getElementById("drNames").value = "";
+    document.getElementById("dhNames").value = "";
+    document.getElementById("assistantNote").value = "";
+    document.getElementById("dhRoleLabel").value = "";
+    document.getElementById("newPatientCount").value = "";
+    document.getElementById("insuranceNote").value = "";
+    document.getElementById("drDuration").value = T.DEFAULT_CONFIG.drDuration;
+    document.getElementById("drGap").value = T.DEFAULT_CONFIG.drGap;
+    document.getElementById("dhDuration").value = T.DEFAULT_CONFIG.dhDuration;
+    document.getElementById("dhGap").value = T.DEFAULT_CONFIG.dhGap;
+    document.getElementById("visitInputNote").value = "";
+    document.getElementById("facilityRuleMemo").value = "";
+    currentCareDefault = "";
+    document.getElementById("facilityHint").classList.add("hidden");
+    refreshStaffSelects();
+
+    patientBody.innerHTML = "";
+    addPatientRow();
+    visitItemBody.innerHTML = "";
+    visitItemSeq = 0;
+    addVisitItemRow();
+
+    document.getElementById("resultSection").classList.add("hidden");
+    document.getElementById("restoreBanner").classList.add("hidden");
+  }
+
   function renderFindings(container, findings) {
     container.innerHTML = "";
     if (findings.length === 0) {
@@ -419,7 +604,7 @@
     document.getElementById("visitInputView").innerHTML = html;
   }
 
-  document.getElementById("generateBtn").addEventListener("click", function () {
+  function generateTimetable() {
     var config = {
       drDuration: parseInt(document.getElementById("drDuration").value, 10) || T.DEFAULT_CONFIG.drDuration,
       drGap: parseInt(document.getElementById("drGap").value, 10) || T.DEFAULT_CONFIG.drGap,
@@ -527,5 +712,42 @@
     }
 
     document.getElementById("resultSection").classList.remove("hidden");
+  }
+
+  document.getElementById("generateBtn").addEventListener("click", generateTimetable);
+
+  document.getElementById("clearSavedBtn").addEventListener("click", function () {
+    if (!window.confirm("保存されている入力内容を削除して、新しい日の入力を始めますか？")) return;
+    clearFormState();
+    resetToBlank();
   });
+
+  // 入力内容を自動保存（localStorageのみ。フォーム内のどこかを操作するたびに保存する）
+  document.addEventListener("input", saveFormState);
+  document.addEventListener("change", saveFormState);
+  document.addEventListener("click", function (e) {
+    // clearSavedBtn自身のクリックで保存してしまうと、クリア直後に空状態が再保存されてしまうため除外する
+    if (e.target.tagName === "BUTTON" && e.target.id !== "clearSavedBtn") saveFormState();
+  });
+
+  (function initFromSavedState() {
+    var saved = loadFormState();
+    if (!saved) return;
+    restoreFormState(saved);
+    var banner = document.getElementById("restoreBanner");
+    var savedAtLabel = "";
+    var d = new Date(saved.savedAt);
+    if (!isNaN(d.getTime())) {
+      savedAtLabel = d.getFullYear() + "/" + (d.getMonth() + 1) + "/" + d.getDate() + " " +
+        (d.getHours() < 10 ? "0" : "") + d.getHours() + ":" + (d.getMinutes() < 10 ? "0" : "") + d.getMinutes();
+    }
+    banner.textContent = "💾 前回の入力を自動的に復元しました" + (savedAtLabel ? "（保存日時：" + savedAtLabel + "）" : "") +
+      "。新しい日の入力を始める場合は上の「保存データをクリア」を押してください。";
+    banner.classList.remove("hidden");
+    try {
+      generateTimetable();
+    } catch (e) {
+      // 復元直後の自動生成に失敗しても、入力内容の復元自体は成功しているので握りつぶす
+    }
+  })();
 })();
