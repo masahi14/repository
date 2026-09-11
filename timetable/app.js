@@ -117,20 +117,31 @@
     }
   }
 
+  var MONTHLY_COUNT_OPTIONS = ["1人", "2〜4人", "5〜9人", "10人以上"];
+
   function addVisitItemRow() {
     visitItemSeq++;
     var tr = document.createElement("tr");
     tr.className = "visit-item-row";
     tr.dataset.id = "visit-item-" + visitItemSeq;
+    var monthlyOptions = '<option value="">—</option>' + MONTHLY_COUNT_OPTIONS.map(function (o) {
+      return '<option value="' + o + '">' + o + "</option>";
+    }).join("");
     tr.innerHTML =
       '<td><select class="vi-type"><option value="main">●主項目(赤)</option><option value="sub">●管理料等(黄)</option><option value="note">⚠️注意事項</option></select></td>' +
       '<td><input type="text" class="vi-name" placeholder="例）(歯)居宅療養II" /></td>' +
+      '<td><select class="vi-monthly">' + monthlyOptions + "</select></td>" +
       '<td><input type="text" class="vi-caption" placeholder="例）人数の見方：月の対象人数" /></td>' +
       '<td><input type="text" class="vi-value" placeholder="例）月10人以上" /></td>' +
       '<td><button type="button" class="danger remove-row">削除</button></td>';
     visitItemBody.appendChild(tr);
     tr.querySelector(".remove-row").addEventListener("click", function () {
       tr.remove();
+    });
+    tr.querySelector(".vi-monthly").addEventListener("change", function () {
+      if (this.value) {
+        tr.querySelector(".vi-value").value = "月" + this.value + "（点数要確認）";
+      }
     });
   }
 
