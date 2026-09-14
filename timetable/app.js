@@ -204,7 +204,48 @@
   document.getElementById("drNames").addEventListener("input", refreshStaffSelects);
   document.getElementById("dhNames").addEventListener("input", refreshStaffSelects);
   renderDhQuickSelect();
+  // 印刷時、内容量（患者数など）に関わらずA4横1枚に収まるよう自動縮小する
+  function fitPrintToOnePage() {
+    var wrapper = document.getElementById("printScaleWrapper");
+    var el = document.getElementById("resultSection");
+    if (!wrapper || !el || el.classList.contains("hidden")) return;
+    el.style.transform = "none";
+    wrapper.style.width = "auto";
+    wrapper.style.height = "auto";
+    var w = el.scrollWidth;
+    var h = el.scrollHeight;
+    if (!w || !h) return;
+    var PX_PER_MM = 96 / 25.4;
+    var PAGE_W_MM = 297;
+    var PAGE_H_MM = 210;
+    var MARGIN_MM = 10;
+    // ブラウザの印刷ダイアログで「ヘッダーとフッター」がオンのままだと、CSSの@page余白とは別に
+    // 上下に日付・URL・ページ番号などの領域が追加され、その分ページからはみ出しやすくなる。
+    // そのぶんを見込んで、実際の使用可能領域より少し狭めに見積もっておく（安全マージン）。
+    var HEADER_FOOTER_BUFFER_MM = 16;
+    var availW = (PAGE_W_MM - MARGIN_MM * 2) * PX_PER_MM;
+    var availH = (PAGE_H_MM - MARGIN_MM * 2 - HEADER_FOOTER_BUFFER_MM) * PX_PER_MM;
+    var scale = Math.min(1, availW / w, availH / h);
+    el.style.transformOrigin = "top left";
+    el.style.transform = "scale(" + scale + ")";
+    wrapper.style.width = (w * scale) + "px";
+    wrapper.style.height = (h * scale) + "px";
+  }
+
+  function resetPrintScale() {
+    var wrapper = document.getElementById("printScaleWrapper");
+    var el = document.getElementById("resultSection");
+    if (!wrapper || !el) return;
+    el.style.transform = "none";
+    wrapper.style.width = "auto";
+    wrapper.style.height = "auto";
+  }
+
+  window.addEventListener("beforeprint", fitPrintToOnePage);
+  window.addEventListener("afterprint", resetPrintScale);
+
   document.getElementById("printBtn").addEventListener("click", function () {
+    fitPrintToOnePage();
     window.print();
   });
 

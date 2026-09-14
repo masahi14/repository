@@ -162,8 +162,13 @@
 <section class="no-print">
   <button id="generateBtn" class="primary">タイムテーブルを作成</button>
   <button id="printBtn">印刷 / PDF</button>
+  <p class="note" style="margin-top:8px;">印刷ダイアログが開いたら、用紙サイズ「A4」・向き「横（横向き）」を選び、
+    「その他の設定」の中の「ヘッダーとフッター」のチェックを外してください（入れたままだと日付やURLの分
+    余白が増えて、1枚に収まらずページが分かれることがあります）。内容量に合わせて自動的に縮小されますが、
+    それでも収まらない場合はこの設定を確認してください。</p>
 </section>
 
+<div id="printScaleWrapper">
 <section id="resultSection" class="hidden print-sheet">
   <div class="sheet-header">
     <div class="sheet-title" id="sheetTitle"></div>
@@ -199,6 +204,7 @@
     <div id="auditFindings"></div>
   </div>
 </section>
+</div>
 
 <script src="logic.js"></script>
 <script src="app.js"></script>
