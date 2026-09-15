@@ -66,11 +66,44 @@
   }
 
   var DEFAULT_CONFIG = {
-    drDuration: 22, // Dr 通常時間(分) 21-23が目安
-    drGap: 2, // Dr 患者間(分) 通常2-3、最大4まで許容
-    dhDuration: 21, // DH 通常時間(分) 最低20
-    dhGap: 2 // DH 患者間(分) 通常2-3、最大4まで許容
+    drDuration: { min: 21, max: 23 }, // Dr 処置時間(分)
+    drGap: { min: 2, max: 3 }, // Dr 患者間(分)・最大4まで許容
+    dhDuration: { min: 20, max: 22 }, // DH 処置時間(分)
+    dhGap: { min: 2, max: 3 } // DH 患者間(分)・最大4まで許容
   };
+
+  /**
+   * "21-23" のような範囲文字列、"〜"/"~"/全角ハイフンにも対応する範囲パーサー。
+   * 単一の数字（"22"等）ならmin=maxとして扱う。空文字・解釈不能な場合はfallbackを返す。
+   * @param {*} raw
+   * @param {number} fallbackMin
+   * @param {number} fallbackMax
+   * @returns {{min:number, max:number}}
+   */
+  function parseRange(raw, fallbackMin, fallbackMax) {
+    var s = String(raw === undefined || raw === null ? "" : raw).trim();
+    if (!s) return { min: fallbackMin, max: fallbackMax };
+    var m = /^(\d+)\s*[-〜~－]\s*(\d+)$/.exec(s);
+    if (m) {
+      var a = parseInt(m[1], 10);
+      var b = parseInt(m[2], 10);
+      return a <= b ? { min: a, max: b } : { min: b, max: a };
+    }
+    var n = parseInt(s, 10);
+    if (!isNaN(n)) return { min: n, max: n };
+    return { min: fallbackMin, max: fallbackMax };
+  }
+
+  /**
+   * 範囲[min,max]の中を、その担当者内での通し番号(0始まり)に応じて順番に一巡させる。
+   * 例：範囲21-23、index=0,1,2,3,4... → 21,22,23,21,22...
+   * ランダムではなく決定的にすることで、同じ入力なら常に同じ結果になるようにしている。
+   */
+  function rangeValue(range, index) {
+    var span = range.max - range.min + 1;
+    if (span <= 0) return range.min;
+    return range.min + (index % span);
+  }
 
   /**
    * @param {Object} input
@@ -98,6 +131,9 @@
    *    全員重なる場合はDrが空くまで待つ。
    * この2段階方式により、DrとDHが同一患者では絶対に重ならないという原則を守りながら、
    * DHがDrの終了をただ待つのではなく、別の患者を先に担当して同時に稼働できるようにする。
+   * 処置時間・患者間隔は config.drDuration 等に指定した範囲（{min,max}）内を、担当者ごとの
+   * 通し番号で順番に一巡させることで、全患者が同じ時間にならないよう自然な幅を持たせる
+   * （p.drMinutesOverride 等で個別指定した場合はそちらを優先）。
    */
   function generateSchedule(input) {
     var config = Object.assign({}, DEFAULT_CONFIG, input.config || {});
@@ -159,16 +195,21 @@
       drPointer[n] = facilityStartMin;
     });
     var drBlockByPatient = {};
+    var drCounter = {};
     validPatients.forEach(function (vp) {
       if (!vp.needsDr) return;
       var p = vp.ref;
-      var dur = p.drMinutesOverride || config.drDuration;
-      var start = drPointer[p.drStaff];
+      var staffName = p.drStaff;
+      var slotIndex = drCounter[staffName] || 0;
+      var dur = p.drMinutesOverride || rangeValue(config.drDuration, slotIndex);
+      var gap = rangeValue(config.drGap, slotIndex);
+      var start = drPointer[staffName];
       var end = start + dur;
-      var block = { staffType: "dr", staffName: p.drStaff, patientId: vp.id, patientName: p.name, start: start, end: end };
+      var block = { staffType: "dr", staffName: staffName, patientId: vp.id, patientName: p.name, start: start, end: end };
       blocks.push(block);
       drBlockByPatient[vp.id] = block;
-      drPointer[p.drStaff] = end + config.drGap;
+      drPointer[staffName] = end + gap;
+      drCounter[staffName] = slotIndex + 1;
     });
 
     // ② DH：同じ開始時刻からスタートし、その時点でDrと重ならない患者を順に探して埋めていく
@@ -183,21 +224,24 @@
       var remaining = dhByStaff[staffName].slice();
       var dhPointer = facilityStartMin;
       var guard = 0;
+      var slotIndex = 0;
       while (remaining.length > 0 && guard < 10000) {
         guard++;
         var scheduledIdx = -1;
         for (var i = 0; i < remaining.length; i++) {
           var vp = remaining[i];
           var p = vp.ref;
-          var dur = p.dhMinutesOverride || config.dhDuration;
+          var dur = p.dhMinutesOverride || rangeValue(config.dhDuration, slotIndex);
           var candStart = dhPointer;
           var candEnd = candStart + dur;
           var drBlock = drBlockByPatient[vp.id];
           var conflict = drBlock && candStart < drBlock.end && drBlock.start < candEnd;
           if (!conflict) {
+            var gap = rangeValue(config.dhGap, slotIndex);
             blocks.push({ staffType: "dh", staffName: staffName, patientId: vp.id, patientName: p.name, start: candStart, end: candEnd });
-            dhPointer = candEnd + config.dhGap;
+            dhPointer = candEnd + gap;
             scheduledIdx = i;
+            slotIndex++;
             break;
           }
         }
@@ -415,6 +459,8 @@
     DEFAULT_CONFIG: DEFAULT_CONFIG,
     toMinutes: toMinutes,
     toHHMM: toHHMM,
+    parseRange: parseRange,
+    rangeValue: rangeValue,
     groupByStaffSorted: groupByStaffSorted,
     computeGaps: computeGaps,
     generateSchedule: generateSchedule,

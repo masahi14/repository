@@ -23,11 +23,12 @@ check("toMinutes/toHHMM の相互変換", function () {
   assert.strictEqual(T.toMinutes("invalid"), null);
 });
 
-check("Drのみ複数患者：通常間隔で連続割付", function () {
+check("Drのみ複数患者：通常間隔で連続割付（固定値指定）", function () {
   var result = T.generateSchedule({
     facilityStart: "09:00",
     drNames: ["山田Dr"],
     dhNames: [],
+    config: { drDuration: { min: 22, max: 22 }, drGap: { min: 2, max: 2 } },
     patients: [
       { id: "p1", name: "患者A", role: "dr", drStaff: "山田Dr" },
       { id: "p2", name: "患者B", role: "dr", drStaff: "山田Dr" }
@@ -38,6 +39,47 @@ check("Drのみ複数患者：通常間隔で連続割付", function () {
   assert.strictEqual(result.blocks[0].start, 540); // 09:00
   assert.strictEqual(result.blocks[0].end, 562); // +22分
   assert.strictEqual(result.blocks[1].start, 564); // +2分ギャップ
+});
+
+check("parseRange：範囲・単一値・全角チルダ・不正値のフォールバックに対応", function () {
+  assert.deepStrictEqual(T.parseRange("21-23", 0, 0), { min: 21, max: 23 });
+  assert.deepStrictEqual(T.parseRange("23-21", 0, 0), { min: 21, max: 23 }); // 逆順は自動で入れ替え
+  assert.deepStrictEqual(T.parseRange("22", 0, 0), { min: 22, max: 22 });
+  assert.deepStrictEqual(T.parseRange("21〜23", 0, 0), { min: 21, max: 23 });
+  assert.deepStrictEqual(T.parseRange("", 5, 9), { min: 5, max: 9 });
+  assert.deepStrictEqual(T.parseRange("abc", 5, 9), { min: 5, max: 9 });
+});
+
+check("Dr処置時間・間隔に範囲を指定すると、患者ごとに順番に一巡して幅を持たせる", function () {
+  var result = T.generateSchedule({
+    facilityStart: "09:00",
+    drNames: ["山田Dr"],
+    dhNames: [],
+    config: { drDuration: { min: 21, max: 23 }, drGap: { min: 2, max: 2 } },
+    patients: [
+      { id: "p1", name: "患者A", role: "dr", drStaff: "山田Dr" },
+      { id: "p2", name: "患者B", role: "dr", drStaff: "山田Dr" },
+      { id: "p3", name: "患者C", role: "dr", drStaff: "山田Dr" },
+      { id: "p4", name: "患者D", role: "dr", drStaff: "山田Dr" }
+    ]
+  });
+  var durations = result.blocks.map(function (b) { return b.end - b.start; });
+  assert.deepStrictEqual(durations, [21, 22, 23, 21], "範囲21-23を順番に一巡するはず");
+
+  // 同じ入力なら常に同じ結果になる（決定的であること）ことも確認
+  var result2 = T.generateSchedule({
+    facilityStart: "09:00",
+    drNames: ["山田Dr"],
+    dhNames: [],
+    config: { drDuration: { min: 21, max: 23 }, drGap: { min: 2, max: 2 } },
+    patients: [
+      { id: "p1", name: "患者A", role: "dr", drStaff: "山田Dr" },
+      { id: "p2", name: "患者B", role: "dr", drStaff: "山田Dr" },
+      { id: "p3", name: "患者C", role: "dr", drStaff: "山田Dr" },
+      { id: "p4", name: "患者D", role: "dr", drStaff: "山田Dr" }
+    ]
+  });
+  assert.deepStrictEqual(result2.blocks, result.blocks);
 });
 
 check("患者が1人だけの場合：DHはDr終了後まで開始しない（他に担当できる患者がいないため）", function () {

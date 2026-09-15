@@ -50,6 +50,11 @@
     });
   }
 
+  // DEFAULT_CONFIGの{min,max}を、入力欄に表示する文字列（"21-23"や単一なら"22"）に変換する
+  function rangeLabel(range) {
+    return range.min === range.max ? String(range.min) : range.min + "-" + range.max;
+  }
+
   function addPatientRow(options) {
     options = options || {};
     rowSeq++;
@@ -411,10 +416,10 @@
     document.getElementById("dhRoleLabel").value = b.dhRoleLabel || "";
     document.getElementById("newPatientCount").value = b.newPatientCount || "";
     document.getElementById("insuranceNote").value = b.insuranceNote || "";
-    document.getElementById("drDuration").value = b.drDuration || T.DEFAULT_CONFIG.drDuration;
-    document.getElementById("drGap").value = b.drGap || T.DEFAULT_CONFIG.drGap;
-    document.getElementById("dhDuration").value = b.dhDuration || T.DEFAULT_CONFIG.dhDuration;
-    document.getElementById("dhGap").value = b.dhGap || T.DEFAULT_CONFIG.dhGap;
+    document.getElementById("drDuration").value = b.drDuration || rangeLabel(T.DEFAULT_CONFIG.drDuration);
+    document.getElementById("drGap").value = b.drGap || rangeLabel(T.DEFAULT_CONFIG.drGap);
+    document.getElementById("dhDuration").value = b.dhDuration || rangeLabel(T.DEFAULT_CONFIG.dhDuration);
+    document.getElementById("dhGap").value = b.dhGap || rangeLabel(T.DEFAULT_CONFIG.dhGap);
     document.getElementById("visitInputNote").value = state.visitInputNote || "";
     document.getElementById("facilityRuleMemo").value = state.facilityRuleMemo || "";
 
@@ -476,10 +481,10 @@
     document.getElementById("dhRoleLabel").value = "";
     document.getElementById("newPatientCount").value = "";
     document.getElementById("insuranceNote").value = "";
-    document.getElementById("drDuration").value = T.DEFAULT_CONFIG.drDuration;
-    document.getElementById("drGap").value = T.DEFAULT_CONFIG.drGap;
-    document.getElementById("dhDuration").value = T.DEFAULT_CONFIG.dhDuration;
-    document.getElementById("dhGap").value = T.DEFAULT_CONFIG.dhGap;
+    document.getElementById("drDuration").value = rangeLabel(T.DEFAULT_CONFIG.drDuration);
+    document.getElementById("drGap").value = rangeLabel(T.DEFAULT_CONFIG.drGap);
+    document.getElementById("dhDuration").value = rangeLabel(T.DEFAULT_CONFIG.dhDuration);
+    document.getElementById("dhGap").value = rangeLabel(T.DEFAULT_CONFIG.dhGap);
     document.getElementById("visitInputNote").value = "";
     document.getElementById("facilityRuleMemo").value = "";
     currentCareDefault = "";
@@ -647,10 +652,10 @@
 
   function generateTimetable() {
     var config = {
-      drDuration: parseInt(document.getElementById("drDuration").value, 10) || T.DEFAULT_CONFIG.drDuration,
-      drGap: parseInt(document.getElementById("drGap").value, 10) || T.DEFAULT_CONFIG.drGap,
-      dhDuration: parseInt(document.getElementById("dhDuration").value, 10) || T.DEFAULT_CONFIG.dhDuration,
-      dhGap: parseInt(document.getElementById("dhGap").value, 10) || T.DEFAULT_CONFIG.dhGap
+      drDuration: T.parseRange(document.getElementById("drDuration").value, T.DEFAULT_CONFIG.drDuration.min, T.DEFAULT_CONFIG.drDuration.max),
+      drGap: T.parseRange(document.getElementById("drGap").value, T.DEFAULT_CONFIG.drGap.min, T.DEFAULT_CONFIG.drGap.max),
+      dhDuration: T.parseRange(document.getElementById("dhDuration").value, T.DEFAULT_CONFIG.dhDuration.min, T.DEFAULT_CONFIG.dhDuration.max),
+      dhGap: T.parseRange(document.getElementById("dhGap").value, T.DEFAULT_CONFIG.dhGap.min, T.DEFAULT_CONFIG.dhGap.max)
     };
 
     var drNames = drNamesList();

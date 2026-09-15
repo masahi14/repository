@@ -86,22 +86,25 @@
   </div>
   <div class="row">
     <div class="field">
-      <label>Dr処置時間(分・目安21-23)</label>
-      <input type="number" id="drDuration" value="22" min="1" />
+      <label>Dr処置時間(分)</label>
+      <input type="text" id="drDuration" value="21-23" placeholder="例）21-23 または 22" />
     </div>
     <div class="field">
-      <label>Dr患者間隔(分・目安2-3、最大4)</label>
-      <input type="number" id="drGap" value="2" min="0" />
+      <label>Dr患者間隔(分・最大4)</label>
+      <input type="text" id="drGap" value="2-3" placeholder="例）2-3 または 2" />
     </div>
     <div class="field">
-      <label>DH処置時間(分・最低20)</label>
-      <input type="number" id="dhDuration" value="21" min="1" />
+      <label>DH処置時間(分)</label>
+      <input type="text" id="dhDuration" value="20-22" placeholder="例）20-22 または 21" />
     </div>
     <div class="field">
-      <label>DH患者間隔(分・目安2-3、最大4)</label>
-      <input type="number" id="dhGap" value="2" min="0" />
+      <label>DH患者間隔(分・最大4)</label>
+      <input type="text" id="dhGap" value="2-3" placeholder="例）2-3 または 2" />
     </div>
   </div>
+  <p class="note">上の4つの欄は「21-23」のように範囲で入力すると、患者ごとに範囲内で時間をずらして
+    自動的に幅を持たせます（全員が全く同じ時間になりません）。「22」のように単一の数字を入れれば、
+    今まで通り全員同じ時間になります。</p>
 </section>
 
 <section class="no-print">
