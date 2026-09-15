@@ -263,6 +263,100 @@
   }
 
   /**
+   * 患者ごとの処置時間（drMinutesOverride等）や設定はそのままに、患者の「並び順」だけを
+   * 入れ替えて、全体の終了時刻が最も早くなる順番を探す。何分にするかという算定判断には
+   * 一切踏み込まず、既に決まっている時間設定のもとでの割付効率だけを最適化する。
+   *
+   * 8人以下は順列を総当たりして厳密に最適な並び順を求める（8!=40320通り程度なら
+   * ブラウザ上でも一瞬で終わる）。9人以上は総当たりだと組み合わせが爆発的に増える
+   * （9!=362,880、10!=3,628,800…）ため、ランダムな入れ替えを繰り返す近似探索に切り替える
+   * （必ず最良とは限らないが、実用上十分に良い並び順が見つかる）。
+   *
+   * @param {Object} input generateSchedule と同じ形式の入力（input.patients の並び順が対象）
+   * @returns {{patients: Array, order: number[], end: number, approximate: boolean}}
+   *   end: 最良の並び順での全体終了時刻（分）。patientsが空の場合はnull
+   *   approximate: true の場合、総当たりではなく近似探索で求めた結果
+   */
+  function optimizePatientOrder(input) {
+    var patients = input.patients || [];
+    var n = patients.length;
+    if (n === 0) {
+      return { patients: [], order: [], end: null, approximate: false };
+    }
+
+    function evaluate(order) {
+      var reordered = order.map(function (idx) { return patients[idx]; });
+      var scheduleInput = Object.assign({}, input, { patients: reordered });
+      var result = generateSchedule(scheduleInput);
+      if (result.creationErrors.length > 0 || result.blocks.length === 0) return Infinity;
+      var maxEnd = 0;
+      result.blocks.forEach(function (b) {
+        if (b.end > maxEnd) maxEnd = b.end;
+      });
+      return maxEnd;
+    }
+
+    var identity = patients.map(function (_, i) { return i; });
+    var bestOrder = identity;
+    var bestEnd = evaluate(identity);
+    var EXHAUSTIVE_LIMIT = 8;
+
+    if (n <= EXHAUSTIVE_LIMIT) {
+      var current = identity.slice();
+      permute(current, 0);
+    } else {
+      var working = identity.slice();
+      var workingEnd = bestEnd;
+      var ITERATIONS = 4000;
+      for (var it = 0; it < ITERATIONS; it++) {
+        var a = Math.floor(Math.random() * n);
+        var b = Math.floor(Math.random() * n);
+        if (a === b) continue;
+        swap(working, a, b);
+        var candidateEnd = evaluate(working);
+        if (candidateEnd <= workingEnd) {
+          workingEnd = candidateEnd;
+          if (workingEnd < bestEnd) {
+            bestEnd = workingEnd;
+            bestOrder = working.slice();
+          }
+        } else {
+          swap(working, a, b); // 改善しなければ元に戻す
+        }
+      }
+    }
+
+    function swap(arr, i, j) {
+      var t = arr[i];
+      arr[i] = arr[j];
+      arr[j] = t;
+    }
+
+    function permute(arr, k) {
+      if (k === arr.length) {
+        var end = evaluate(arr);
+        if (end < bestEnd) {
+          bestEnd = end;
+          bestOrder = arr.slice();
+        }
+        return;
+      }
+      for (var i = k; i < arr.length; i++) {
+        swap(arr, k, i);
+        permute(arr, k + 1);
+        swap(arr, k, i);
+      }
+    }
+
+    return {
+      patients: bestOrder.map(function (idx) { return patients[idx]; }),
+      order: bestOrder,
+      end: bestEnd === Infinity ? null : bestEnd,
+      approximate: n > EXHAUSTIVE_LIMIT
+    };
+  }
+
+  /**
    * 独立監査。generateSchedule の内部状態（ポインタ等）は一切使わず、
    * 出力済みの blocks 配列を再ソート・再計算して検証する。
    *
@@ -468,6 +562,7 @@
     groupByStaffSorted: groupByStaffSorted,
     computeGaps: computeGaps,
     generateSchedule: generateSchedule,
+    optimizePatientOrder: optimizePatientOrder,
     auditSchedule: auditSchedule,
     VISIT_FEE_TABLE: VISIT_FEE_TABLE,
     DH_ASSIST_FEE: DH_ASSIST_FEE,

@@ -206,6 +206,7 @@
   document.getElementById("addPatientBtn").addEventListener("click", function () { addPatientRow(); });
   document.getElementById("addConsultBtn").addEventListener("click", addConsultRow);
   document.getElementById("bulkAddPatientsBtn").addEventListener("click", bulkAddPatients);
+  document.getElementById("optimizeOrderBtn").addEventListener("click", optimizePatientOrder);
   document.getElementById("drNames").addEventListener("input", refreshStaffSelects);
   document.getElementById("dhNames").addEventListener("input", refreshStaffSelects);
   renderDhQuickSelect();
@@ -317,6 +318,62 @@
       });
     });
     return patients;
+  }
+
+  function optimizePatientOrder() {
+    var patients = collectPatients();
+    if (patients.length === 0) return;
+
+    var config = {
+      drDuration: T.parseRange(document.getElementById("drDuration").value, T.DEFAULT_CONFIG.drDuration.min, T.DEFAULT_CONFIG.drDuration.max),
+      drGap: T.parseRange(document.getElementById("drGap").value, T.DEFAULT_CONFIG.drGap.min, T.DEFAULT_CONFIG.drGap.max),
+      dhDuration: T.parseRange(document.getElementById("dhDuration").value, T.DEFAULT_CONFIG.dhDuration.min, T.DEFAULT_CONFIG.dhDuration.max),
+      dhGap: T.parseRange(document.getElementById("dhGap").value, T.DEFAULT_CONFIG.dhGap.min, T.DEFAULT_CONFIG.dhGap.max)
+    };
+    var input = {
+      facilityStart: document.getElementById("facilityStart").value,
+      drNames: drNamesList(),
+      dhNames: dhNamesList(),
+      patients: patients,
+      config: config
+    };
+
+    var optimized = T.optimizePatientOrder(input);
+    var banner = document.getElementById("optimizeResultBanner");
+    if (optimized.end === null) {
+      banner.textContent = "⚠️ 並び順を計算できませんでした（入力内容をご確認ください）";
+      banner.classList.remove("hidden");
+      return;
+    }
+
+    // 見つかった並び順の通りに、実際のDOM行を並べ替える（時間設定などは一切変更しない）
+    var rows = patientBody.querySelectorAll(".patient-row");
+    optimized.order.forEach(function (origIdx) {
+      patientBody.appendChild(rows[origIdx]);
+    });
+
+    var msg = "🔀 並び順を自動調整しました。終了予定：" + T.toHHMM(optimized.end);
+    var targetRaw = document.getElementById("facilityEnd").value;
+    if (targetRaw) {
+      var targetMin = T.toMinutes(targetRaw);
+      if (targetMin !== null) {
+        var diff = optimized.end - targetMin;
+        if (diff === 0) {
+          msg += "（目標ちょうどです）";
+        } else if (diff > 0) {
+          msg += "（目標より" + diff + "分遅くなっています）";
+        } else {
+          msg += "（目標より" + (-diff) + "分早く終えられます）";
+        }
+      }
+    }
+    if (optimized.approximate) {
+      msg += " ※患者数が多いため総当たりではなく近似計算での結果です。";
+    }
+    banner.textContent = msg;
+    banner.classList.remove("hidden");
+
+    generateTimetable();
   }
 
   function collectFormState() {
@@ -499,6 +556,7 @@
 
     document.getElementById("resultSection").classList.add("hidden");
     document.getElementById("restoreBanner").classList.add("hidden");
+    document.getElementById("optimizeResultBanner").classList.add("hidden");
   }
 
   function renderFindings(container, findings) {

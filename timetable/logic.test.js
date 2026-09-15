@@ -251,6 +251,51 @@ check("歯科訪問診療料：施設相談(isConsultation)は人数に含めな
   assert.strictEqual(fee.perPatient.length, 1);
 });
 
+check("optimizePatientOrder：処置時間はそのまま、並び順だけで終了時刻を早くする", function () {
+  // 実際に確認済みのケース：義歯調整(5分・Drのみ)を最後に置くと終了11:58、
+  // 先頭に置くと11:42になる（他の患者の時間は固定のまま、並び順だけの違い）
+  var patients = [
+    { id: "p1", name: "患者1", role: "both", drStaff: "美恵子先生", dhStaff: "諸谷さん", drMinutesOverride: 21 },
+    { id: "p2", name: "患者2", role: "both", drStaff: "美恵子先生", dhStaff: "諸谷さん", drMinutesOverride: 15 },
+    { id: "p3", name: "患者3", role: "both", drStaff: "美恵子先生", dhStaff: "諸谷さん", drMinutesOverride: 21 },
+    { id: "p4", name: "患者4", role: "both", drStaff: "美恵子先生", dhStaff: "諸谷さん", drMinutesOverride: 21 },
+    { id: "p5", name: "患者5", role: "both", drStaff: "美恵子先生", dhStaff: "諸谷さん", drMinutesOverride: 15 },
+    { id: "p6", name: "患者6", role: "both", drStaff: "美恵子先生", dhStaff: "諸谷さん", drMinutesOverride: 21 },
+    { id: "p7", name: "患者7", role: "both", drStaff: "美恵子先生", dhStaff: "諸谷さん", drMinutesOverride: 21 },
+    { id: "p8", name: "義歯調整", role: "dr", drStaff: "美恵子先生", dhStaff: null, drMinutesOverride: 5 }
+  ];
+  var config = {
+    drGap: { min: 1, max: 2 },
+    dhDuration: { min: 20, max: 21 },
+    dhGap: { min: 1, max: 2 }
+  };
+  var input = { facilityStart: "09:10", drNames: ["美恵子先生"], dhNames: ["諸谷さん"], patients: patients, config: config };
+
+  var naive = T.generateSchedule(input);
+  var naiveEnd = Math.max.apply(null, naive.blocks.map(function (b) { return b.end; }));
+
+  var optimized = T.optimizePatientOrder(input);
+  assert.strictEqual(optimized.approximate, false, "8人以下は総当たりのはず");
+  assert.ok(optimized.end <= naiveEnd, "最適化後は元の並び順以上に早いはず");
+  assert.ok(optimized.end < naiveEnd, "このケースでは並び順を変えれば改善するはず");
+
+  // 最適化した並び順で実際にgenerateScheduleしても、報告されたendと一致することを確認
+  var reorderedInput = Object.assign({}, input, { patients: optimized.patients });
+  var reorderedResult = T.generateSchedule(reorderedInput);
+  var reorderedEnd = Math.max.apply(null, reorderedResult.blocks.map(function (b) { return b.end; }));
+  assert.strictEqual(reorderedEnd, optimized.end);
+
+  // 独立監査でも患者の重複等の問題がないことを確認（時間帯の警告は出てよい）
+  var audit = T.auditSchedule(reorderedResult.blocks, { config: config });
+  assert.ok(!audit.findings.some(function (f) { return f.severity === "error"; }));
+});
+
+check("optimizePatientOrder：患者が0人なら何もしない", function () {
+  var result = T.optimizePatientOrder({ facilityStart: "09:00", drNames: [], dhNames: [], patients: [] });
+  assert.deepStrictEqual(result.patients, []);
+  assert.strictEqual(result.end, null);
+});
+
 console.log(passed + " passed");
 if (process.exitCode) {
   console.log("=== 一部テストが失敗しました ===");

@@ -50,7 +50,7 @@
       <input type="time" id="facilityStart" value="09:00" />
     </div>
     <div class="field">
-      <label>予定終了時刻（任意）</label>
+      <label>予定終了時刻（任意・並び順自動調整の目標にも使えます）</label>
       <input type="time" id="facilityEnd" />
     </div>
   </div>
@@ -130,6 +130,11 @@
   <button id="addPatientBtn">＋ 患者を追加</button>
   <button id="addConsultBtn" type="button">＋ 施設相談を追加（Drのみ・短時間）</button>
   <p class="note" style="margin-top:8px;">「施設相談」はDrのみの短時間対応（目安3〜5分、長くて10分）です。追加すると自動でDrのみ・時間欄が入力された状態になります。時間は必要に応じて書き換えてください。</p>
+  <button id="optimizeOrderBtn" type="button" style="margin-top:8px;">🔀 並び順を自動調整（終了予定を早める）</button>
+  <p class="note" style="margin-top:8px;">各患者のDr/DH時間はそのまま変えず、並び順だけを入れ替えて全体の終了予定が
+    最も早くなる組み合わせを探します（何分にするかは決めません。それは先生の判断のままです）。
+    「予定終了時刻」を入力しておくと、目標との差も表示します。</p>
+  <div id="optimizeResultBanner" class="hidden note"></div>
 </section>
 
 <section class="no-print">
