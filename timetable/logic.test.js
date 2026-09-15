@@ -197,7 +197,7 @@ check("歯科訪問診療補助加算：補助DHがいない場合（hasAssistan
   assert.strictEqual(fee.perPatient[0].assistPoints, null, "補助DHがいないのに加算が付いてはいけない");
 });
 
-check("歯科訪問診療料：5人→区分3、20分未満は96点", function () {
+check("歯科訪問診療料：5人→区分3、20分未満は217点（レセプトサポートセンター・レセコン確認済み）", function () {
   var patients = [
     { id: "p1", name: "患者A", role: "dr" },
     { id: "p2", name: "患者B", role: "dr" },
@@ -211,7 +211,7 @@ check("歯科訪問診療料：5人→区分3、20分未満は96点", function (
   var fee = T.calcVisitFees(patients, blocks);
   assert.strictEqual(fee.category, 3);
   fee.perPatient.forEach(function (pf) {
-    assert.strictEqual(pf.points, 96);
+    assert.strictEqual(pf.points, 217);
   });
 });
 
