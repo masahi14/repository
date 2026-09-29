@@ -1,6 +1,6 @@
 """「担当別」シートを患者一覧から自動反映するフォーマットで作成する。
 
-担当別の行 r（4行目以降）は患者一覧の行 r-2 に対応する。M列（衛生士次回目安日）は条件確定待ちのため見出しのみ。
+担当別の行 r（4行目以降）は患者一覧の行 r-2 に対応する。
 """
 from openpyxl import load_workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -27,11 +27,14 @@ def ref(col):
     return f'=IF({SRC}!${col}{{p}}="","",{SRC}!${col}{{p}})'
 
 
-DR_NEXT = (
-    f'=IF({EMPTY_ROW},"",IF({SRC}!$I{{p}}="","記録なし",'
-    f'IF({SRC}!$G{{p}}="月1回",EDATE({SRC}!$I{{p}},1),'
-    f'IF({SRC}!$G{{p}}="2か月1回",EDATE({SRC}!$I{{p}},2),"未定"))))'
-)
+def next_date(col):
+    """最終来院日(col)と訪問頻度から次回目安日。月1回→1か月後、2か月1回→2か月後の同じ日"""
+    return (
+        f'=IF({EMPTY_ROW},"",IF({SRC}!${col}{{p}}="","記録なし",'
+        f'IF({SRC}!$G{{p}}="月1回",EDATE({SRC}!${col}{{p}},1),'
+        f'IF({SRC}!$G{{p}}="2か月1回",EDATE({SRC}!${col}{{p}},2),"未定"))))'
+    )
+
 
 # (列, 見出し, 幅, 見出し色, 数式, 種類)
 COLUMNS = [
@@ -39,14 +42,14 @@ COLUMNS = [
     ("B", "名前", 14, DR_FILL, ref("B"), "center"),
     ("C", "入所施設", 20, DR_FILL, ref("F"), "facility"),
     ("D", "ドクター最終来院日", 12, DR_FILL, ref("I"), "date"),
-    ("E", "ドクター次回目安日", 12, DR_FILL, DR_NEXT, "date"),
+    ("E", "ドクター次回目安日", 12, DR_FILL, next_date("I"), "date"),
     ("F", "ドクター治療内容", 12, DR_FILL, ref("J"), "center"),
     ("G", "ドクター次回予定内容", 16, DR_FILL, ref("K"), "wrap_center"),
     ("I", "患者ID", 9, DH_FILL, ref("A"), "center"),
     ("J", "名前", 14, DH_FILL, ref("B"), "center"),
     ("K", "入所施設", 20, DH_FILL, ref("F"), "facility"),
     ("L", "衛生士最終来院日", 12, DH_FILL, ref("P"), "date"),
-    ("M", "衛生士次回目安日", 12, DH_FILL, None, "date"),  # 条件確定待ち
+    ("M", "衛生士次回目安日", 12, DH_FILL, next_date("P"), "date"),
     ("N", "衛生士治療内容", 14, DH_FILL, ref("Q"), "center"),
     ("O", "衛生士次回予定内容", 16, DH_FILL, ref("R"), "wrap_center"),
     ("R", "備考", 36, NOTE_FILL, ref("V"), "wrap"),
