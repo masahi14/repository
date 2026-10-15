@@ -130,7 +130,7 @@ def model_dr(p, base):
     es = date_state(p["exam"], base)
     if es == "ok":
         d = as_date(p["exam"])[1]
-        c2 = {"T"} if base < edate(d, 3) else {"F"}
+        c2 = {"T"} if base < edate(d, B.EXAM_MONTHS) else {"F"}
     else:
         c2 = {"T", "F"}
     outcomes = {(a == "Y" and b == "T") for a in c1 for b in c2}   # True=除外
@@ -421,8 +421,8 @@ def rand_people(base, seed, n=250):
         if x < 0.27:
             return datetime.datetime.combine(base + datetime.timedelta(days=rnd.randint(1, 20)), datetime.time())
         if x < 0.55:
-            return near_edate(rnd.choice([1, 2, 3]))
-        d = base - datetime.timedelta(days=rnd.randint(0, 150))
+            return near_edate(rnd.choice([3, B.EXAM_MONTHS] if kind == "exam" else [1, 2, 3]))
+        d = base - datetime.timedelta(days=rnd.randint(0, 230 if kind == "exam" else 150))
         return datetime.datetime(d.year, d.month, d.day)
     for i in range(n):
         pid = 1000 + i
@@ -469,20 +469,20 @@ NAMED = [
      dict(ins="利用中", docLast=datetime.datetime(2026, 8, 31)), None, "*"),
     ("未利用・衛生士次回予定が空欄・期限が1か月と2か月の間は要確認", "2026-09-15",
      dict(ins="未利用", hygPlan=None, docLast=datetime.datetime(2026, 8, 1)), "C", "*"),
-    ("検査2026/08/01・治療なし: 11/01はちょうど3か月経過=除外しない", "2026-11-01",
-     dict(docPlan=DOC_NONE, exam=datetime.datetime(2026, 8, 1)), "*", "T"),
-    ("検査2026/08/01・治療なし: 10/31は3か月未満=除外", "2026-10-31",
-     dict(docPlan=DOC_NONE, exam=datetime.datetime(2026, 8, 1)), "*", None),
-    ("治療なし以外・検査から3か月未満: 除外しない(①だけ)", "2026-10-31",
-     dict(docPlan="相談", exam=datetime.datetime(2026, 8, 1)), "*", "T"),
-    ("治療なし・検査から3か月経過: 除外しない(②だけ違う)", "2026-11-05",
-     dict(docPlan=DOC_NONE, exam=datetime.datetime(2026, 8, 1)), "*", "T"),
-    ("治療なし・検査日が空欄: 3か月未満と判断せず要確認", "2026-10-31",
+    ("検査2026/05/01・治療なし: 11/01はちょうど6か月経過=除外しない", "2026-11-01",
+     dict(docPlan=DOC_NONE, exam=datetime.datetime(2026, 5, 1)), "*", "T"),
+    ("検査2026/05/01・治療なし: 10/31は6か月未満=除外", "2026-10-31",
+     dict(docPlan=DOC_NONE, exam=datetime.datetime(2026, 5, 1)), "*", None),
+    ("治療なし以外・検査から6か月未満: 除外しない(①だけ)", "2026-10-31",
+     dict(docPlan="相談", exam=datetime.datetime(2026, 5, 1)), "*", "T"),
+    ("治療なし・検査から6か月経過: 除外しない(②だけ違う)", "2026-11-05",
+     dict(docPlan=DOC_NONE, exam=datetime.datetime(2026, 5, 1)), "*", "T"),
+    ("治療なし・検査日が空欄: 6か月未満と判断せず要確認", "2026-10-31",
      dict(docPlan=DOC_NONE, exam=None), "*", "C"),
-    ("次回予定が空欄・検査が3か月未満: 治療なし扱いにせず要確認", "2026-10-31",
-     dict(docPlan=None, exam=datetime.datetime(2026, 8, 1)), "*", "C"),
-    ("治療なし・検査3か月未満・CRに進捗記録: 要確認", "2026-10-31",
-     dict(docPlan=DOC_NONE, exam=datetime.datetime(2026, 8, 1), cr="0/2"), "*", "C"),
+    ("次回予定が空欄・検査が6か月未満: 治療なし扱いにせず要確認", "2026-10-31",
+     dict(docPlan=None, exam=datetime.datetime(2026, 5, 1)), "*", "C"),
+    ("治療なし・検査6か月未満・CRに進捗記録: 要確認", "2026-10-31",
+     dict(docPlan=DOC_NONE, exam=datetime.datetime(2026, 5, 1), cr="0/2"), "*", "C"),
     ("検査日が基準日より後: 両シートとも要確認(判定に使わない)", "2026-10-31",
      dict(docPlan="相談", exam=datetime.datetime(2026, 11, 20)), "C", "C"),
     ("状態=終了: 条件に合っても抽出しない(既存条件)", "2026-11-01",
