@@ -436,4 +436,28 @@ textarea {
     size: A4 landscape;
     margin: 10mm;
   }
+
+  /* コピー機でコピーしても薄くなって読みづらくならないよう、印刷時は文字を
+     大きめ・濃いめにする（画面表示のサイズは変えない）。ヘッダー等の白文字部分は
+     対象から除く。 */
+  .print-sheet th,
+  .print-sheet td {
+    font-size: 14px;
+  }
+  .print-sheet .gap-line,
+  .print-sheet .memo-view,
+  .print-sheet .visit-item,
+  .print-sheet .visit-item-caption,
+  .print-sheet .visit-item-note,
+  .print-sheet .note {
+    font-size: 13px;
+    color: #000 !important;
+  }
+  .print-sheet .visit-item-value,
+  .print-sheet .sheet-final {
+    font-weight: bold;
+  }
+  .print-sheet .sheet-final {
+    font-size: 15px;
+  }
 }

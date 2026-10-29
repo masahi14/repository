@@ -231,7 +231,13 @@
     var HEADER_FOOTER_BUFFER_MM = 16;
     var availW = (PAGE_W_MM - MARGIN_MM * 2) * PX_PER_MM;
     var availH = (PAGE_H_MM - MARGIN_MM * 2 - HEADER_FOOTER_BUFFER_MM) * PX_PER_MM;
+    // 患者数が多いと1枚に収めるための縮小率がどんどん小さくなり、コピーした際に
+    // 文字が薄く・小さくなりすぎて読めなくなる。そのため、ある程度より小さくは
+    // 縮小しない下限を設け、それでも収まらない場合は1枚に収めることより読みやすさを
+    // 優先し、2枚目以降に自然にはみ出すのを許容する。
+    var MIN_SCALE = 0.8;
     var scale = Math.min(1, availW / w, availH / h);
+    if (scale < MIN_SCALE) scale = MIN_SCALE;
     el.style.transformOrigin = "top left";
     el.style.transform = "scale(" + scale + ")";
     wrapper.style.width = (w * scale) + "px";
